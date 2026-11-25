@@ -1,14 +1,20 @@
-# Configuración local del asistente / rutas personales
+# Local assistant config / personal paths
 .claude/
 CLAUDE.md
 
-# Nunca versionar credenciales, capturas HAR sin sanitizar ni respuestas reales
+# Private design mockups (kept out of the repository)
+Imagenes/
+
+# Real API responses from tools/verify-api.ps1 (contain real file names)
+local/
+
+# Never commit credentials, unsanitized HAR captures or cookie jars
 *.har
 *.cookies
 cookies.txt
 .env
 .env.*
 
-# Sistema
+# OS
 Thumbs.db
 .DS_Store

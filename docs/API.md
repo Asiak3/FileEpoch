@@ -1,153 +1,151 @@
-# API del servidor web de Kopia (descubrimiento, Fase 0)
+# Kopia web server API (discovery notes, phase 0)
 
-> Kopia **no documenta una API pública estable**. Todo lo de este documento se ha obtenido
-> leyendo el código fuente de **Kopia v0.23.1** (`internal/server/*.go`, `internal/serverapi`,
-> `snapshot/`, `fs/`) y de la interfaz web **kopia/htmlui** (commit `e9f6ace`, 2026-06-08, el que
-> corresponde a `htmluibuild v0.0.1-0.20260608231842-7bf9fcc0831d` embebido en v0.23.1).
-> Puede cambiar en cualquier versión de Kopia; por eso la app debe comprobar la versión (§3).
+> Kopia **does not document a stable public API**. Everything here was derived by reading the source
+> code of **Kopia v0.23.1** (`internal/server/*.go`, `internal/serverapi`, `snapshot/`, `fs/`,
+> `repo/object`) and of the web UI **kopia/htmlui** (commit `e9f6ace`, 2026-06-08, which is what
+> `htmluibuild v0.0.1-0.20260608231842-7bf9fcc0831d` embedded in v0.23.1 was built from).
+> It may change in any Kopia release, which is why the app checks the server version (§3).
 
-Marcadores de estado usados en la tabla de endpoints:
+Status markers used in the endpoint table:
 
-- **Código** = verificado leyendo el código de v0.23.1.
-- **Vivo** = verificado contra un servidor real 0.23.1.
-- **Pendiente** = no verificado todavía contra un servidor real.
+- **Source** = verified by reading the v0.23.1 source code.
+- **Live** = verified against a real 0.23.1 server.
 
-**Todos los ejemplos JSON de este documento se han construido a partir de los tipos Go** (nombres
-de campo y formatos exactos según las etiquetas `json:"…"`); **ninguno es una respuesta grabada**
-de un servidor real. Se sustituirán por fixtures anonimizados cuando se verifique en vivo (§8).
+**All JSON examples in this document were built from the Go types** (field names and formats taken
+from the `json:"…"` tags); **none of them is a recorded response** from a real server. They will be
+replaced with anonymized fixtures once live verification (§8) has been done.
 
-Valores de ejemplo usados en este documento (marcadores de posición, no datos reales):
-`https://kopia.example:51515`, usuario `ui-user`, host `host1`, usuario de origen `user1`,
-ruta de origen `/data/docs`.
+Placeholder values used in this document (not real data): `https://kopia.example:51515`, UI user
+`ui-user`, host `host1`, source user `user1`, source path `/data/docs`.
 
 ---
 
-## 1. Resumen
+## 1. Summary
 
-| Necesidad                         | Endpoint                                   | CSRF | Estado                 |
-|-----------------------------------|--------------------------------------------|------|------------------------|
-| Obtener token CSRF + versión      | `GET /`                                    | no   | Código                 |
-| Estado del repositorio (readonly) | `GET /api/v1/repo/status`                  | sí   | Código; 401 sin credenciales: Vivo |
-| Listar fuentes (sources)          | `GET /api/v1/sources`                      | sí   | Código                 |
-| Listar snapshots de una fuente    | `GET /api/v1/snapshots?host=&userName=&path=[&all=1]` | sí | Código        |
-| Listar un directorio              | `GET /api/v1/objects/{oid}` (oid de directorio) | **no** | Código           |
-| Descargar un archivo              | `GET /api/v1/objects/{oid}` (oid de archivo)    | **no** | Código           |
-| Descargar una carpeta             | *no existe endpoint*: recorrido recursivo + descarga de cada archivo | — | Código |
+| Need                              | Endpoint                                               | CSRF   | Status |
+|-----------------------------------|--------------------------------------------------------|--------|--------|
+| CSRF token + server version       | `GET /`                                                | no     | Source |
+| Repository status (`readonly`)    | `GET /api/v1/repo/status`                              | yes    | Source; 401 without credentials: Live |
+| List sources                      | `GET /api/v1/sources`                                  | yes    | Source |
+| List snapshots of a source        | `GET /api/v1/snapshots?host=&userName=&path=[&all=1]`  | yes    | Source |
+| List a directory                  | `GET /api/v1/objects/{oid}` (directory OID)            | **no** | Source |
+| Download a file                   | `GET /api/v1/objects/{oid}` (file OID)                 | **no** | Source |
+| Download a folder                 | *no endpoint*: recursive walk + one download per file  | —      | Source |
 
-Lista blanca propuesta para la app (método **y** ruta, nada más):
+Whitelist for the app (method **and** path, nothing else):
 
 ```
 GET  /
 GET  /api/v1/repo/status
 GET  /api/v1/sources
 GET  /api/v1/snapshots
-GET  /api/v1/objects/{oid}
+GET  /api/v1/objects/{oid}      {oid} must match ^(I+|Z)?[g-z]?[0-9a-f]{2,64}$
 ```
 
-Cualquier otra combinación de método/ruta debe rechazarse en el propio cliente, antes de salir
-a la red. Ver §7 para el motivo: `--readonly` **no** hace seguros el resto de endpoints.
+Any other method/path combination must be rejected inside the client, before anything goes out on
+the network. See §7 for why: `--readonly` does **not** make the other endpoints safe.
 
 ---
 
-## 2. Autenticación
+## 2. Authentication
 
-### 2.1 Modelo real (corrige la hipótesis inicial)
+### 2.1 How it actually works
 
-No hay "login con sesión". El servidor exige **HTTP Basic en cada petición**
+There is no "login session". The server requires **HTTP Basic on every request**
 (`Server.isAuthenticated`, `internal/server/server.go`):
 
-1. Si la petición no trae `Authorization: Basic …` → `401`, cuerpo `Missing credentials.`,
-   cabecera `WWW-Authenticate: Basic realm="Kopia"`.
-2. Si trae Basic **y** una cookie `Kopia-Auth` válida para ese usuario → aceptada sin comprobar la
-   contraseña (es solo una caché para evitar el hash de la contraseña).
-3. Si no, se valida usuario/contraseña. Si falla → `401`, cuerpo `Access denied.` (y el servidor
-   registra el intento fallido en su log).
-4. Si es válida, el servidor responde con `Set-Cookie: Kopia-Auth=<JWT HS256>; Path=/` con
-   caducidad de **1 minuto**. Es opcional reenviarla; reduce carga en el servidor.
+1. No `Authorization: Basic …` header → `401`, body `Missing credentials.`, header
+   `WWW-Authenticate: Basic realm="Kopia"`.
+2. Basic **and** a valid `Kopia-Auth` cookie for that user → accepted without checking the password
+   (the cookie only caches a successful check, to skip password hashing).
+3. Otherwise user/password are checked. Failure → `401`, body `Access denied.` (and the server logs
+   a failed login attempt).
+4. On success the server replies with `Set-Cookie: Kopia-Auth=<HS256 JWT>; Path=/`, valid for
+   **1 minute**. Sending it back is optional; it reduces server load.
 
-Después, para casi todas las rutas `/api/v1/*` (las registradas con `handleUI` /
-`handleUIPossiblyNotConnected`) se exige además un **token CSRF** (§2.2). Si falta o no coincide →
-`401`, cuerpo `Invalid or missing CSRF token.`
+On top of that, almost every `/api/v1/*` route (those registered with `handleUI` /
+`handleUIPossiblyNotConnected`) requires a **CSRF token** (§2.2). Missing or wrong →
+`401`, body `Invalid or missing CSRF token.`
 
-**Diagnóstico de la prueba con curl:** un `curl -u usuario …/api/v1/…` con Basic correcto pero sin
-cookie de sesión ni cabecera CSRF da exactamente este último 401. No faltaba un "login", faltaba el
-par cookie de sesión + token CSRF.
+So a `curl -u user …/api/v1/…` with correct Basic credentials but no session cookie and no CSRF
+header fails with exactly this last 401. Nothing like a "login" is missing; the session-cookie +
+CSRF-token pair is.
 
-Hay por tanto **tres cuerpos distintos de 401**, y el cliente debe distinguirlos para dar un
-mensaje útil:
+There are **three different 401 bodies**, and the client must tell them apart to show a useful
+message:
 
-| Cuerpo (text/plain)               | Significado                             | Acción del cliente                   |
-|-----------------------------------|-----------------------------------------|--------------------------------------|
-| `Missing credentials.`            | No se envió Basic                       | Error de programación                |
-| `Access denied.`                  | Usuario o contraseña incorrectos        | Pedir de nuevo la contraseña         |
-| `Invalid or missing CSRF token.`  | Token caducado / servidor reiniciado    | Repetir el arranque CSRF (§2.2) una vez y reintentar |
+| Body (text/plain)                 | Meaning                               | Client action                                     |
+|-----------------------------------|---------------------------------------|---------------------------------------------------|
+| `Missing credentials.`            | No Basic header sent                  | Programming error                                 |
+| `Access denied.`                  | Wrong user name or password           | Ask for the password again                        |
+| `Invalid or missing CSRF token.`  | Token expired / server restarted      | Redo the CSRF bootstrap (§2.2) once, then retry   |
 
-### 2.2 Arranque CSRF
+### 2.2 CSRF bootstrap
 
-Código: `ServeStaticFiles` y `patchIndexBytes` en `server.go`, `generateCSRFToken` /
-`validateCSRFToken` en `server_authz_checks.go`, `App.jsx` en htmlui.
+Source: `ServeStaticFiles` and `patchIndexBytes` in `server.go`, `generateCSRFToken` /
+`validateCSRFToken` in `server_authz_checks.go`, `App.jsx` in htmlui.
 
-1. `GET /` con Basic. El servidor:
-   - fija `Set-Cookie: Kopia-Session-Cookie=<uuid>; Path=/` (si la petición no traía ya esa cookie);
-   - devuelve `index.html` con `<meta name="kopia-csrf-token" content="<token>" />` insertado justo
-     antes de `</head>`.
-2. En cada llamada a `/api/v1/*` enviar:
+1. `GET /` with Basic. The server:
+   - sets `Set-Cookie: Kopia-Session-Cookie=<uuid>; Path=/` (unless the request already carried it);
+   - returns `index.html` with `<meta name="kopia-csrf-token" content="<token>" />` inserted right
+     before `</head>`.
+2. Every `/api/v1/*` call then sends:
    - `Authorization: Basic …`
-   - `Cookie: Kopia-Session-Cookie=<uuid>` (y opcionalmente `Kopia-Auth=<jwt>`)
+   - `Cookie: Kopia-Session-Cookie=<uuid>` (optionally also `Kopia-Auth=<jwt>`)
    - `X-Kopia-Csrf-Token: <token>`
 
-El token es `hex(HMAC-SHA256(clave, sessionID))`. La clave (`authCookieSigningKey`) es un UUID
-aleatorio generado **en cada arranque del servidor** salvo que se fije con
-`--auth-cookie-signing-key`. Consecuencia: tras reiniciar el servidor, todos los tokens y cookies
-dejan de valer → el cliente debe repetir el paso 1 al recibir `Invalid or missing CSRF token.`
+The token is `hex(HMAC-SHA256(key, sessionID))`. The key (`authCookieSigningKey`) is a random UUID
+generated **every time the server starts**, unless fixed with `--auth-cookie-signing-key`. So after
+a server restart all tokens and cookies become invalid, and the client must repeat step 1 when it
+gets `Invalid or missing CSRF token.`
 
-`GET /api/v1/objects/{oid}` está registrado con `csrfTokenNotRequired`: solo necesita Basic.
+`GET /api/v1/objects/{oid}` is registered with `csrfTokenNotRequired`: Basic is enough.
 
-### 2.3 Usuario autorizado para la UI
+### 2.3 Which user may use these endpoints
 
-Además de autenticarse, el usuario debe ser **el usuario de UI del servidor**, es decir el valor de
-`--server-username` con el que se arrancó (`requireUIUser`). Si no coincide:
+Besides authenticating, the user must be **the server's UI user**, i.e. the value of
+`--server-username` the server was started with (`requireUIUser`). Otherwise:
 
 - `GET /` → `403`, `UI Access denied. See https://github.com/kopia/kopia/issues/880#…`
 - `/api/v1/*` → `403`, JSON `{"code":"ACCESS_DENIED","error":"access is denied"}`
-- `/api/v1/objects/{oid}` → `403`, texto `access denied`
+- `/api/v1/objects/{oid}` → `403`, text `access denied`
 
-Usuarios definidos con `--htpasswd-file` o con `kopia server user add` pueden autenticarse, pero
-solo el usuario de UI puede usar estos endpoints.
+Users defined via `--htpasswd-file` or `kopia server user add` can authenticate, but only the UI
+user can use these endpoints.
 
-### 2.4 Formato de errores JSON
+### 2.4 JSON error format
 
-Las rutas `handleUI*` devuelven errores como `text/plain` (sic) con cuerpo JSON:
+`handleUI*` routes return errors with `Content-Type: text/plain` (sic) and a JSON body:
 
 ```json
 { "code": "NOT_CONNECTED", "error": "not connected" }
 ```
 
-Códigos posibles (`serverapi.APIErrorCode`): `INTERNAL`, `ALREADY_CONNECTED`,
-`ALREADY_INITIALIZED`, `INVALID_PASSWORD`, `INVALID_TOKEN`, `MALFORMED_REQUEST`, `NOT_CONNECTED`,
-`NOT_FOUND`, `NOT_INITIALIZED`, `PATH_NOT_FOUND`, `STORAGE_CONNECTION`, `ACCESS_DENIED`.
-HTTP: 400 (petición), 403 (acceso), 404, 500.
+Possible codes (`serverapi.APIErrorCode`): `INTERNAL`, `ALREADY_CONNECTED`, `ALREADY_INITIALIZED`,
+`INVALID_PASSWORD`, `INVALID_TOKEN`, `MALFORMED_REQUEST`, `NOT_CONNECTED`, `NOT_FOUND`,
+`NOT_INITIALIZED`, `PATH_NOT_FOUND`, `STORAGE_CONNECTION`, `ACCESS_DENIED`.
+HTTP: 400 (bad request), 403 (access), 404, 500.
 
 ---
 
-## 3. Versión del servidor y comprobaciones de seguridad
+## 3. Server version and safety checks
 
-**No existe endpoint de versión.** La versión se obtiene del mismo `GET /` del arranque CSRF:
-`patchIndexBytes` sustituye
+**There is no version endpoint.** The version comes from the same `GET /` used for the CSRF
+bootstrap: `patchIndexBytes` replaces
 
-- `</title>` → ` v<versión></title>` (p. ej. `<title>KopiaUI v0.23.1</title>`)
-- `<p class="version-info">Version ` → `<p class="version-info">Version v<versión> <buildinfo> `
+- `</title>` → ` v<version></title>` (e.g. `<title>KopiaUI v0.23.1</title>`)
+- `<p class="version-info">Version ` → `<p class="version-info">Version v<version> <buildinfo> `
 
-Si el binario no tiene versión (compilación de desarrollo) no se añade nada. Si se usa
-`--ui-title-prefix`, el prefijo aparece antes de `KopiaUI`. La app debe extraer `v\d+\.\d+\.\d+`
-del `<title>` y, si no está en la lista de versiones probadas, avisar claramente.
+Development builds without a version get nothing appended. With `--ui-title-prefix` the prefix
+appears before `KopiaUI`. The app extracts `v\d+\.\d+\.\d+` from `<title>` and, if it is not in the
+list of tested versions, shows a clear warning.
 
-`GET /api/v1/repo/status` incluye los campos de `ClientOptions`, entre ellos `readonly`:
+`GET /api/v1/repo/status` embeds the `ClientOptions` fields, including `readonly`:
 
 ```json
 {
   "connected": true,
-  "configFile": "<ruta en el servidor>",
+  "configFile": "<path on the server>",
   "formatVersion": 3,
   "hash": "BLAKE2B-256-128",
   "encryption": "AES256-GCM-HMAC-SHA256",
@@ -162,28 +160,28 @@ del `<title>` y, si no está en la lista de versiones probadas, avisar clarament
 }
 ```
 
-(Valores ilustrativos, construidos a partir de los tipos Go; no es una respuesta grabada.)
+**App behaviour (decided):** if `readonly` is not `true`, the app connects but shows a clear,
+persistent **warning** that the server can modify the repository (most likely it is pointed at an
+admin server by mistake). The client-side whitelist still applies, so the app itself never sends a
+modifying request either way.
 
-**Requisito para la app:** si `readonly` no es `true`, mostrar una advertencia clara (o negarse a
-conectar, según se decida, ver §9). Es una defensa concreta contra apuntar la app por error al
-servidor de administración. Si `connected` es `false`, el servidor no tiene repositorio abierto
-(`initTaskID` puede indicar que se está abriendo): mostrar "servidor sin repositorio" y reintentar.
+If `connected` is `false` the server has no repository open (`initTaskID` may say it is being
+opened): show "server has no repository" and retry.
 
-### 3.1 Certificado TLS y huella
+### 3.1 TLS certificate and fingerprint
 
-Kopia compara `hex(SHA-256(certificado DER))` en minúsculas, sin separadores
-(`internal/tlsutil/tlsutil.go`, `verifyPeerCertificate`), y la imprime así al arrancar:
-`SERVER CERT SHA256: 0a1b2c…` (64 caracteres hex). `openssl x509 -fingerprint -sha256` da el mismo valor en
-mayúsculas con `:`. La app debe aceptar ambos formatos (normalizar: quitar `:` y espacios,
-pasar a minúsculas) y comprobar que la huella coincide con **cualquiera** de los certificados
-presentados, igual que Kopia.
+Kopia compares `hex(SHA-256(DER certificate))`, lower case, no separators
+(`internal/tlsutil/tlsutil.go`, `verifyPeerCertificate`), and prints it that way on startup:
+`SERVER CERT SHA256: 0a1b2c…` (64 hex characters). `openssl x509 -fingerprint -sha256` gives the
+same value in upper case with `:`. The app accepts both formats (normalize: strip `:` and spaces,
+lower-case). Kopia accepts a match on **any** certificate in the presented chain; for self-signed
+certificates that is the leaf.
 
 ---
 
-## 4. Fuentes (sources)
+## 4. Sources
 
-`GET /api/v1/sources` — CSRF: sí. Filtros opcionales por query: `host`, `userName`, `path`
-(coincidencia exacta).
+`GET /api/v1/sources` — CSRF: yes. Optional query filters: `host`, `userName`, `path` (exact match).
 
 ```json
 {
@@ -203,34 +201,32 @@ presentados, igual que Kopia.
 }
 ```
 
-Notas:
+Notes:
 
-- Incluye **todas** las fuentes del repositorio (todas las combinaciones usuario@host:ruta con
-  snapshots o con política propia), no solo las del host local. La web de Kopia filtra por
-  `localHost`/`localUsername` en el cliente; nuestra app debería mostrar todas, agrupadas por
-  `usuario@host`.
-- La lista se calcula al arrancar el servidor y en cada *refresh* (por defecto cada 4 h,
-  `--refresh-interval`). Una fuente nueva puede tardar en aparecer.
-- `status` y `nextSnapshotTime` no son relevantes en un servidor de solo lectura (no programa
-  snapshots porque `isLocal()` es falso cuando `readonly`).
+- Returns **all** sources in the repository (every user@host:path that has snapshots or its own
+  policy), not only the local host's. The Kopia web UI filters by `localHost`/`localUsername` on the
+  client side; our app shows all of them, grouped by `user@host`.
+- The list is computed when the server starts and on every server *refresh* (every 4 h by default,
+  `--refresh-interval`). A new source may take a while to show up, and `lastSnapshot` may be stale.
+- `status` and `nextSnapshotTime` are irrelevant on a read-only server (it does not schedule
+  snapshots: `isLocal()` is false when `readonly`).
 
 ---
 
-## 5. Snapshots de una fuente
+## 5. Snapshots of a source
 
-`GET /api/v1/snapshots?host=<h>&userName=<u>&path=<p>[&all=1]` — CSRF: sí.
+`GET /api/v1/snapshots?host=<h>&userName=<u>&path=<p>[&all=1]` — CSRF: yes.
 
-- Los tres parámetros deben indicarse; se usan como `SourceInfo` exacto (con `path` vacío se
-  pediría otra cosa).
-- Orden: **del más antiguo al más reciente** (`snapshot.SortByTime(manifests, false)`: ascendente
-  por `startTime`, desempate por `endTime`).
-- Sin `all`: el servidor **agrupa** snapshots con el mismo `rootID` (contenido idéntico) y, como
-  recorre la lista en orden ascendente, conserva el **más antiguo** de cada grupo y le suma los
-  `retention`/`pins` de los demás. Esto es el "agrupar idénticos" de la web. Con
-  `all=<cualquier valor no vacío>` devuelve todos.
-- Consecuencia para la barra temporal: un grupo de snapshots idénticos se muestra con la fecha del
-  primero ("contenido vigente desde…"). Si la app quiere mostrar también "hasta…", debe pedir
-  `all=1` y agrupar ella misma por `rootID` (barato: es la misma lista).
+- All three parameters must be given; they are used as an exact `SourceInfo`.
+- Order: **oldest first** (`snapshot.SortByTime(manifests, false)`: ascending by `startTime`, ties
+  broken by `endTime`).
+- Without `all`: the server **groups** snapshots with the same `rootID` (identical content). Because
+  it walks the list in ascending order it keeps the **oldest** snapshot of each group and merges the
+  others' `retention`/`pins` into it. This is the web UI's "hide identical snapshots". With
+  `all=<any non-empty value>` it returns all of them.
+- Consequence for the timeline: a group of identical snapshots is shown with the date of the first
+  one ("content unchanged since…"). To also show "until…", the app requests `all=1` and groups by
+  `rootID` itself (cheap: same list).
 
 ```json
 {
@@ -253,217 +249,195 @@ Notas:
 }
 ```
 
-- `incomplete` solo aparece en snapshots incompletos (checkpoints); la app debería marcarlos.
-- `rootID` es el OID del directorio raíz del snapshot → entrada a §6.
-- **Fechas:** RFC 3339 con nanosegundos, siempre en **UTC** (`fs.UTCTimestamp.MarshalJSON`). La app
-  convierte a hora local del usuario para mostrarlas.
+- `incomplete` only appears on incomplete snapshots (checkpoints); the app marks them.
+- `rootID` is the OID of the snapshot's root directory → entry point for §6.
+- **Timestamps:** RFC 3339 with nanoseconds, always **UTC** (`fs.UTCTimestamp.MarshalJSON`). The app
+  converts them to the user's local time for display.
 
 ---
 
-## 6. Directorios y archivos: `GET /api/v1/objects/{oid}`
+## 6. Directories and files: `GET /api/v1/objects/{oid}`
 
-Un único endpoint sirve para listar directorios y descargar archivos (`handleObjectGet`,
-`api_object_get.go`). CSRF: **no**. Solo está registrado para GET. Ojo: una petición HEAD no da 405, la recoge el
-manejador de archivos estáticos (`PathPrefix("/")`), así que no sirve para consultar tamaños; usar
-siempre GET (el tamaño ya viene en la entrada del directorio).
+A single endpoint lists directories and downloads files (`handleObjectGet`, `api_object_get.go`).
+CSRF: **no**. Registered for GET only. Note that a HEAD request does not get a 405: it falls through
+to the static-file handler (`PathPrefix("/")`), so HEAD cannot be used to query sizes. Always use
+GET (the size is already in the directory entry).
 
-### 6.1 Directorio
-
-**Gramática de un OID** (`repo/object/objectid.go`, `repo/content/index/id.go`):
+**OID grammar** (`repo/object/objectid.go`, `repo/content/index/id.go`):
 
 ```
-OID      = "I"* ["Z"] CONTENT          ("I" y "Z" son excluyentes)
-CONTENT  = [prefijo g..z] HEX          (HEX: hash en hexadecimal, longitud par, hasta 64)
+OID      = "I"* ["Z"] CONTENT          ("I" and "Z" are mutually exclusive)
+CONTENT  = [prefix g..z] HEX           (HEX: hash in hex, even length, up to 64)
 ```
 
-- `I` (una o varias) = objeto troceado con índice: lo usan **archivos grandes** y también
-  directorios grandes.
-- `Z` = objeto comprimido.
-- Prefijo de contenido `k` = metadatos de directorio; archivos normales no llevan prefijo.
+- `I` (one or more) = chunked object with an index: used by **large files** and by large directories.
+- `Z` = compressed object.
+- Content prefix `k` = directory metadata; regular file contents have no prefix.
 
-**Regla para el cliente:** saber si algo es archivo o directorio por el campo `type` de su entrada
-(o porque es el `rootID` de un snapshot), **nunca** por el prefijo del OID. La validación del
-`{oid}` en la lista blanca debe aceptar toda la gramática anterior, p. ej.
-`^(I+|Z)?[g-z]?[0-9a-f]{2,64}$`, y nada más (así tampoco se puede inyectar `/`, `?`, `..`).
+**Rule for the client:** decide whether something is a file or a directory from the `type` field of
+its entry (or because it is a snapshot's `rootID`), **never** from the OID prefix. The whitelist
+check on `{oid}` accepts the whole grammar above, `^(I+|Z)?[g-z]?[0-9a-f]{2,64}$`, and nothing else
+(which also rules out injecting `/`, `?` or `..`).
 
-Si el OID es de directorio la respuesta es `application/json` con el `DirManifest` tal cual está
-guardado en el repositorio (no lo genera el servidor; es el formato interno de Kopia):
+### 6.1 Directory
+
+For a directory OID the response is `application/json` containing the `DirManifest` exactly as
+stored in the repository (the server does not generate it; it is Kopia's internal format):
 
 ```json
 {
   "stream": "kopia:directory",
   "entries": [
-    { "name": "Informe.pdf", "type": "f", "mode": "0644", "size": 3355443,
+    { "name": "Report.pdf", "type": "f", "mode": "0644", "size": 3355443,
       "mtime": "2025-11-15T16:50:00Z", "uid": 1000, "gid": 1000, "obj": "8f3e…" },
-    { "name": "Fotos", "type": "d", "mode": "0755",
+    { "name": "Photos", "type": "d", "mode": "0755",
       "mtime": "2025-11-14T10:00:00Z", "uid": 1000, "gid": 1000, "obj": "k9a1b…",
       "summ": { "size": 987654321, "files": 4200, "symlinks": 0, "dirs": 35,
                 "maxTime": "2025-11-14T09:59:00Z", "numFailed": 0 } },
-    { "name": "actual", "type": "s", "mode": "0777", "size": 12,
+    { "name": "current", "type": "s", "mode": "0777", "size": 12,
       "mtime": "2025-11-01T00:00:00Z", "obj": "c41d…" }
   ],
   "summary": { "size": …, "files": …, "dirs": …, "maxTime": "…", "numFailed": 0 }
 }
 ```
 
-- `type`: `f` archivo, `d` directorio, `s` enlace simbólico (otros tipos posibles en el código:
-  vacío = desconocido).
-- `mode`: permisos como **cadena octal**; omitido si es 0.
-- `size`, `uid`, `gid`, `summ` se omiten si son 0/nulos (`omitempty`): el parser debe tolerar
-  ausencias.
-- `mtime`: UTC, RFC 3339 nanosegundos.
-- **Sin paginación.** Un directorio con 100 000 entradas llega como un único JSON (decenas de MB).
-  La "carga perezosa" tiene que ser del lado del cliente: parsear en streaming / en segundo plano,
-  virtualizar la lista, y cargar subdirectorios solo al abrirlos.
-- No hay endpoint para resolver una ruta (`/a/b/c`) dentro de un snapshot: se navega desde
-  `rootID` bajando entrada por entrada. (`POST /api/v1/paths/resolve` existe pero resuelve rutas
-  del **sistema de archivos del servidor**, no de un snapshot, y no está en la lista blanca.)
+- `type`: `f` file, `d` directory, `s` symbolic link (empty = unknown).
+- `mode`: permissions as an **octal string**; omitted when 0.
+- `size`, `uid`, `gid`, `summ` are omitted when 0/null (`omitempty`): the parser must tolerate
+  missing fields.
+- `mtime`: UTC, RFC 3339 with nanoseconds.
+- **No pagination.** A directory with 100,000 entries arrives as a single JSON document (tens of MB).
+  Lazy loading has to happen on the client: parse in the background (streaming if needed),
+  virtualize the list, and only load subdirectories when opened.
+- There is no endpoint to resolve a path (`/a/b/c`) inside a snapshot: navigate down from `rootID`
+  one entry at a time. (`POST /api/v1/paths/resolve` exists but resolves paths on the **server's
+  file system**, not inside a snapshot, and is not whitelisted.)
 
-### 6.2 Archivo
+### 6.2 File
 
-Si el OID es de archivo, la respuesta es el contenido, servido con `http.ServeContent`:
+For a file OID the response is the content, served with `http.ServeContent`:
 
-- Soporta **Range** (`Range: bytes=…` → 206): permite reanudar descargas grandes.
-- `Content-Type` lo deduce Go por la extensión de `fname` o por sniffing; no fiarse de él.
-- Query opcional `fname=<nombre>` → añade `Content-Disposition: attachment; filename="<nombre>"`.
-  La app no lo necesita (y el nombre no se escapa, así que mejor no usarlo).
-- Query opcional `mtime=<RFC3339Nano>` → se usa como `Last-Modified`. No necesario.
-- Para enlaces simbólicos (`type: "s"`), el objeto contiene el **texto del destino** del enlace.
+- Supports **Range** (`Range: bytes=…` → 206), so large downloads can be resumed.
+- `Content-Type` is guessed by Go from the `fname` extension or by sniffing; do not rely on it.
+- Optional query `fname=<name>` → adds `Content-Disposition: attachment; filename="<name>"`.
+  The app does not need it (and the name is not escaped, so better not to use it).
+- Optional query `mtime=<RFC3339Nano>` → used as `Last-Modified`. Not needed.
+- For symbolic links (`type: "s"`) the object contains the link **target as text**.
 
-### 6.3 Errores
+### 6.3 Errors
 
-| Caso                          | Respuesta                                 |
-|-------------------------------|-------------------------------------------|
-| OID mal formado               | 400 `invalid object id`                   |
-| OID inexistente               | 404 `object not found`                    |
-| Usuario no es el de UI        | 403 `access denied`                       |
-| Otro error al abrir el objeto | No se trata en el código (ver §9): probablemente 500 o conexión cortada |
+| Case                             | Response                                       |
+|----------------------------------|------------------------------------------------|
+| Malformed OID                    | 400 `invalid object id`                        |
+| Unknown OID                      | 404 `object not found`                         |
+| User is not the UI user          | 403 `access denied`                            |
+| Any other error opening object   | Not handled in the code (see §9): probably 500 or a dropped connection |
 
-### 6.4 Descarga de carpetas
+### 6.4 Downloading folders
 
-**No existe** endpoint de descarga de carpeta (zip/tar) que escriba en el cliente. El único zip/tar
-es `POST /api/v1/restore`, que **escribe en el disco del servidor** y está prohibido (§7).
+There is **no** folder download endpoint (zip/tar) that writes on the client. The only zip/tar
+support is `POST /api/v1/restore`, which **writes to the server's disk** and is forbidden (§7).
 
-Restaurar una carpeta = recorrer recursivamente desde su OID (`GET objects/{oid}` de cada
-subdirectorio) y descargar cada archivo con `GET objects/{oid}`. Los metadatos de cada entrada
-(`mtime`, `mode`, `size`) permiten restaurar la fecha de modificación y verificar el tamaño.
+Restoring a folder = walk it recursively from its OID (`GET objects/{oid}` for every subdirectory)
+and download each file with `GET objects/{oid}`. The entry metadata (`mtime`, `mode`, `size`) lets
+the app restore modification times and check sizes.
 
-**Verificación:** los OID de Kopia se derivan de un hash con clave secreta del repositorio, así
-que el cliente **no puede** recalcular un hash comparable. Verificación posible: tamaño (`size`)
-y fecha (`mtime`). TLS ya protege la integridad en tránsito.
+**Verification:** Kopia OIDs are derived from a hash keyed with a secret of the repository, so the
+client **cannot** recompute a comparable hash. Possible checks: size (`size`) and modification time
+(`mtime`). TLS already protects integrity in transit.
 
----
+### 6.5 Restore rules that follow from the data (decided)
 
-## 7. Endpoints prohibidos y por qué `--readonly` no basta
-
-`kopia server start --readonly` abre el repositorio con el almacenamiento envuelto en un
-`readonly` wrapper (`repo/open.go`): **impide escribir blobs del repositorio**, pero el servidor
-sigue registrando todas las rutas, y varias actúan sobre el **host del servidor** o sobre su
-estado, no sobre el repositorio:
-
-| Ruta                                                    | Efecto aun con `--readonly`                              |
-|---------------------------------------------------------|----------------------------------------------------------|
-| `POST /api/v1/restore`                                  | Crea archivos/zip/tar en el disco del servidor           |
-| `POST /api/v1/mounts`, `DELETE /api/v1/mounts/{id}`     | Monta/desmonta snapshots en el servidor                  |
-| `POST /api/v1/repo/disconnect`                          | Desconecta el repositorio (servidor fuera de servicio)   |
-| `POST /api/v1/repo/connect`, `/repo/create`, `/repo/exists` | Conecta/crea repositorios desde el servidor          |
-| `PUT /api/v1/ui-preferences`                            | Escribe un archivo JSON en el servidor                   |
-| `PUT /api/v1/repo/throttle`                             | Cambia la limitación del servidor                        |
-| `POST /api/v1/tasks/{id}/cancel`                        | Cancela tareas del servidor                              |
-| `POST /api/v1/refresh`, `POST /api/v1/repo/sync`        | Fuerza refresh del servidor (inocuo en principio, ver §9)|
-| `POST /api/v1/sources`, `/sources/upload`, `/sources/cancel` | Crear fuentes/snapshots (fallan en readonly, pero no se deben intentar) |
-| `POST /api/v1/snapshots/delete`, `/snapshots/edit`      | Borrar/editar snapshots                                   |
-| `PUT/DELETE /api/v1/policy`, `POST /api/v1/policy/resolve` | Políticas                                             |
-| `POST/DELETE /api/v1/notificationProfiles…`, `POST /api/v1/testNotificationProfile` | Notificaciones (envía mensajes) |
-| `POST /api/v1/estimate`                                 | Lanza una tarea que recorre el disco del servidor         |
-| `/api/v1/control/*`                                     | API de control (otro usuario, `server-control`)          |
-| gRPC `/kopia_repository.KopiaRepository/*`              | API de repositorio para clientes kopia                    |
-
-Por eso la lista blanca (§1) es **exacta y solo GET**, y el cliente debe imponerla por
-construcción (no hay forma de construir una petición a otra ruta), no por convención.
-
-Tampoco se usan, aunque sean GET de lectura, porque no hacen falta: `/api/v1/policy`,
-`/api/v1/policies`, `/api/v1/cli` (revela la ruta del ejecutable y del config del servidor),
-`/api/v1/repo/algorithms`, `/api/v1/repo/throttle`, `/api/v1/mounts…`, `/api/v1/current-user`,
-`/api/v1/ui-preferences`, `/api/v1/tasks…`, `/api/v1/notificationProfiles…`. Se pueden añadir a la
-lista blanca más adelante si se justifica.
+- **File names that are invalid on Windows** (snapshots usually come from Linux): every invalid
+  character (`< > : " / \ | ? *`, control characters) is replaced with `_`; reserved names (`CON`,
+  `PRN`, `AUX`, `NUL`, `COM1`…`COM9`, `LPT1`…`LPT9`, with or without extension) and names ending in a
+  dot or space get a `_` appended. Renamed items are listed in the restore summary. Names that only
+  differ in case and would collide on Windows are handled by the conflict policy (no overwrite by
+  default) and also reported.
+- **Symbolic links** are **not** restored; they are skipped and listed in the restore summary.
 
 ---
 
-## 8. Cómo verificarlo en vivo (receta con curl)
+## 7. Forbidden endpoints, and why `--readonly` is not enough
 
-Pasos para que **el propietario del servidor** confirme los endpoints. `curl -u usuario` sin
-`:contraseña` hace que curl la **pida por teclado**: no queda en el historial ni en archivos.
-`--pinnedpubkey` no sirve aquí (fija la clave pública, no el certificado); para pruebas manuales
-se usa `-k` comprobando antes la huella con `openssl`.
+`kopia server start --readonly` opens the repository with its storage wrapped in a `readonly`
+wrapper (`repo/open.go`): this **prevents writing repository blobs**, but the server still registers
+every route, and several of them act on the **server host** or on server state rather than on the
+repository:
 
-```bash
-S=https://kopia.example:51515
-U=ui-user
-J=$(mktemp)    # tarro de cookies temporal; borrarlo al terminar
+| Route                                                         | Effect even with `--readonly`                          |
+|---------------------------------------------------------------|--------------------------------------------------------|
+| `POST /api/v1/restore`                                        | Creates files/zip/tar on the server's disk             |
+| `POST /api/v1/mounts`, `DELETE /api/v1/mounts/{id}`           | Mounts/unmounts snapshots on the server                |
+| `POST /api/v1/repo/disconnect`                                | Disconnects the repository (takes the server offline)  |
+| `POST /api/v1/repo/connect`, `/repo/create`, `/repo/exists`   | Connects/creates repositories from the server          |
+| `PUT /api/v1/ui-preferences`                                  | Writes a JSON file on the server                       |
+| `PUT /api/v1/repo/throttle`                                   | Changes server throttling                              |
+| `POST /api/v1/tasks/{id}/cancel`                              | Cancels server tasks                                   |
+| `POST /api/v1/refresh`, `POST /api/v1/repo/sync`              | Forces a server refresh (probably harmless, see §9)    |
+| `POST /api/v1/sources`, `/sources/upload`, `/sources/cancel`  | Create sources/snapshots (fail on readonly, must not be attempted) |
+| `POST /api/v1/snapshots/delete`, `/snapshots/edit`            | Delete/edit snapshots                                  |
+| `PUT/DELETE /api/v1/policy`, `POST /api/v1/policy/resolve`    | Policies                                               |
+| `POST/DELETE /api/v1/notificationProfiles…`, `POST /api/v1/testNotificationProfile` | Notifications (sends messages)   |
+| `POST /api/v1/estimate`                                       | Starts a task that walks the server's file system      |
+| `/api/v1/control/*`                                           | Server control API (separate `server-control` user)    |
+| gRPC `/kopia_repository.KopiaRepository/*`                    | Repository API for kopia clients                       |
 
-# 0) Huella del certificado (comparar con la que imprime Kopia al arrancar)
-echo | openssl s_client -connect kopia.example:51515 2>/dev/null \
-  | openssl x509 -noout -fingerprint -sha256
+Hence the whitelist (§1) is **exact and GET-only**, and the client enforces it by construction
+(there is no way to build a request to any other route), not by convention.
 
-# 1) Arranque: cookie de sesión + token CSRF + versión
-curl -sk -u "$U" -c "$J" "$S/" -o index.html
-grep -o '<title>[^<]*</title>' index.html
-TOKEN=$(grep -o 'kopia-csrf-token" content="[0-9a-f]*' index.html | sed 's/.*content="//')
+The following are GET and read-only but are not used, because they are not needed:
+`/api/v1/policy`, `/api/v1/policies`, `/api/v1/cli` (reveals the server's executable and config
+paths), `/api/v1/repo/algorithms`, `/api/v1/repo/throttle`, `/api/v1/mounts…`,
+`/api/v1/current-user`, `/api/v1/ui-preferences`, `/api/v1/tasks…`, `/api/v1/notificationProfiles…`.
+They can be whitelisted later if there is a reason.
 
-# 2) Estado (comprobar "readonly": true)
-curl -sk -u "$U" -b "$J" -H "X-Kopia-Csrf-Token: $TOKEN" "$S/api/v1/repo/status"
+---
 
-# 3) Fuentes
-curl -sk -u "$U" -b "$J" -H "X-Kopia-Csrf-Token: $TOKEN" "$S/api/v1/sources"
+## 8. Live verification
 
-# 4) Snapshots de una fuente (codificar la ruta)
-curl -sk -u "$U" -b "$J" -H "X-Kopia-Csrf-Token: $TOKEN" -G "$S/api/v1/snapshots" \
-  --data-urlencode host=host1 --data-urlencode userName=user1 --data-urlencode path=/data/docs
+Run [`tools/verify-api.ps1`](../tools/verify-api.ps1) (PowerShell 7.5+). It asks for the password
+without echoing it, pins the certificate fingerprint, only sends the whitelisted GET requests, and
+checks the claims in this document:
 
-# 5) Directorio raíz de un snapshot (rootID de la respuesta anterior) — sin CSRF
-curl -sk -u "$U" "$S/api/v1/objects/<rootID>"
-
-# 6) Descarga parcial de un archivo (comprueba Range → HTTP 206)
-curl -sk -u "$U" -r 0-99 -o /dev/null -w '%{http_code} %{size_download}\n' "$S/api/v1/objects/<obj>"
-
-rm -f "$J" index.html
+```powershell
+pwsh -File tools/verify-api.ps1 -Server https://kopia.example:51515 -User ui-user `
+     -Fingerprint <64 hex chars> [-Source <part of a source path>]
 ```
 
-Cada `curl -u "$U"` pide la contraseña de nuevo. Las salidas pueden contener nombres de archivos y
-rutas reales: **no** pegarlas en el repositorio sin anonimizarlas.
+| Step | Checks |
+|------|--------|
+| 1 | `GET /` → 200, CSRF token in page, version in `<title>`, session cookie set |
+| 2 | `/api/v1/sources` without the CSRF header → 401 `Invalid or missing CSRF token.` |
+| 3 | `repo/status`: `connected`, `readonly` |
+| 4 | `sources` |
+| 5 | `snapshots` grouped and `all=1` per source; order oldest → newest; newest snapshot vs. the `lastSnapshot` cached in `sources` (freshness, §9 item 2) |
+| 6 | Root directory of the newest snapshot without CSRF header; size and time of the JSON |
+| 7 | `Range: bytes=0-99` on one file → 206 with 100 bytes |
+
+Raw responses are saved to `local/api-samples/` (git-ignored). They contain real file names: do not
+commit them without anonymizing.
 
 ---
 
-## 9. Dudas abiertas
+## 9. Open questions
 
-1. **Verificación en vivo pendiente.** Hasta ahora solo se ha comprobado en vivo el `401` sin
-   credenciales (`Missing credentials.` + `WWW-Authenticate: Basic realm="Kopia"`), que el servidor
-   habla HTTP/1.1 sobre TLS y el certificado autofirmado. Falta ejecutar §8 con credenciales (o
-   recibir el HAR sanitizado) y grabar fixtures anonimizados para la Fase 1.
-2. **¿Rechazar o solo avisar si `readonly` ≠ `true`?** Propuesta: rechazar por defecto con opción
-   avanzada para permitirlo. Decisión del propietario.
-3. **Frescura de los datos.** Las fuentes se recalculan solo en cada *refresh* del servidor
-   (`--refresh-interval`, 4 h por defecto). Las listas de snapshots se leen bajo demanda, pero el
-   índice del repositorio puede estar en caché. ¿Aparecen los snapshots nuevos (cada 2 h) sin
-   llamar a `POST /api/v1/repo/sync`? Hay que comprobarlo en vivo. Si no aparecen, decidir entre
-   (a) añadir `POST /api/v1/repo/sync` a la lista blanca (no escribe en el repositorio, pero es un
-   POST y dispara trabajo en el servidor) o (b) recomendar un `--refresh-interval` menor.
-4. **Errores no tratados en `handleObjectGet`.** Si `OpenObject` falla por algo distinto de "no
-   encontrado", el código sigue con `obj == nil`. Esperable un 500 o conexión cortada; el cliente
-   debe tratarlo como error recuperable y reintentar una vez.
-5. **Directorios enormes.** Sin paginación; hay que medir en vivo el tamaño/tiempo del JSON del
-   directorio más grande y decidir si hace falta parseo en streaming.
-6. **Límites de concurrencia.** No hay límite explícito en el servidor HTTP para descargas
-   paralelas (`--max-concurrency` afecta a gRPC). Proponer por defecto 4 descargas simultáneas,
-   configurable.
-7. **Nombres de archivo no válidos en Windows** (`:`, `?`, `*`, `\`, nombres reservados como
-   `CON`, mayúsculas/minúsculas que colisionan) en snapshots de Linux. Hace falta una política de
-   saneado al restaurar. Decisión del propietario.
-8. **Enlaces simbólicos al restaurar en Windows:** ¿crearlos (requiere privilegios / modo
-   desarrollador), guardarlos como archivo de texto, u omitirlos e informarlo? Propuesta: omitirlos
-   y listarlos en el resumen.
-9. **Compatibilidad con otras versiones.** Solo se ha leído 0.23.1. Las rutas usadas existen desde
-   hace muchas versiones, pero no se ha comprobado ninguna otra.
-10. **Idioma de la documentación del repositorio** (este archivo está en español). Para un proyecto
-    open source quizá convenga el inglés. Decisión del propietario.
+1. **Live verification pending.** So far only the unauthenticated `401` (`Missing credentials.` +
+   `WWW-Authenticate: Basic realm="Kopia"`), HTTP/1.1 over TLS and the self-signed certificate
+   (including pinning in `tools/verify-api.ps1`) have been checked live. §8 still has to be run
+   with credentials, and anonymized fixtures recorded for phase 1.
+2. **Data freshness.** Sources are only recomputed on each server *refresh*
+   (`--refresh-interval`, 4 h by default). Snapshot lists are read on demand, but the repository
+   index may be cached. Do new snapshots (every 2 h) show up without calling
+   `POST /api/v1/repo/sync`? To be checked live (step 5 of the script). If not, choose between
+   (a) whitelisting `POST /api/v1/repo/sync` (does not write to the repository, but is a POST and
+   triggers work on the server) or (b) recommending a shorter `--refresh-interval`.
+3. **Unhandled errors in `handleObjectGet`.** If `OpenObject` fails with anything other than "not
+   found", the code carries on with a nil object. Expect a 500 or a dropped connection; the client
+   treats it as a recoverable error and retries once.
+4. **Huge directories.** No pagination; measure the size/time of the largest directory's JSON live
+   and decide whether streaming parsing is needed.
+5. **Concurrency.** The HTTP server has no explicit limit on parallel downloads
+   (`--max-concurrency` only affects gRPC). Proposed default: 4 concurrent downloads, configurable.
+6. **Other Kopia versions.** Only 0.23.1 has been read. The routes used have existed for many
+   releases, but no other version has been tested.
