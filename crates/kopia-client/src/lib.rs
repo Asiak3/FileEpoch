@@ -13,6 +13,7 @@
 
 mod client;
 pub mod credentials;
+mod dircache;
 mod endpoint;
 mod error;
 mod oid;
@@ -20,7 +21,7 @@ pub mod restore;
 mod tls;
 mod types;
 
-pub use client::{ConnectInfo, KopiaClient, ServerAddress, TESTED_VERSIONS, Warning};
+pub use client::{ConnectInfo, KopiaClient, ObjectStream, ResolvedPath, ServerAddress, TESTED_VERSIONS, Warning};
 pub use error::{Error, Result};
 pub use oid::Oid;
 pub use tls::{Fingerprint, probe_certificate};

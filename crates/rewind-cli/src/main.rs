@@ -185,8 +185,8 @@ async fn run(cli: Cli) -> Result<()> {
                 }
                 e.obj
             };
-            let mut listing = client.list_directory(&dir).await?;
-            listing.entries.sort_by(|a, b| {
+            let mut entries = client.list_directory(&dir).await?.entries.clone();
+            entries.sort_by(|a, b| {
                 (a.entry_type != EntryType::Directory, a.name.to_lowercase())
                     .cmp(&(b.entry_type != EntryType::Directory, b.name.to_lowercase()))
             });
@@ -196,7 +196,7 @@ async fn run(cli: Cli) -> Result<()> {
                 short_id(&snap.id),
                 path.trim_matches('/')
             );
-            for e in &listing.entries {
+            for e in &entries {
                 let (kind, size) = match e.entry_type {
                     EntryType::Directory => ("dir ", e.summ.as_ref().map(|s| s.size).unwrap_or(0)),
                     EntryType::File => ("file", e.size),
@@ -206,7 +206,7 @@ async fn run(cli: Cli) -> Result<()> {
                 let mtime = e.mtime.map(local).unwrap_or_default();
                 println!("{kind}  {:>10}  {:<17}  {}", human_size(size), mtime, e.name);
             }
-            println!("{} entries", listing.entries.len());
+            println!("{} entries", entries.len());
         }
         Command::Download { source, snapshot, path, out, keep_name } => {
             let src = find_source(&client, &source).await?;

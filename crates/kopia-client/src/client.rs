@@ -8,6 +8,7 @@ use reqwest::header::{AUTHORIZATION, COOKIE, HeaderMap, HeaderValue, RANGE, SET_
 use reqwest::{StatusCode, Url};
 use serde::de::DeserializeOwned;
 
+use crate::dircache::{DEFAULT_MAX_ENTRIES, DirCache};
 use crate::endpoint::Endpoint;
 use crate::tls::{MismatchSlot, pinned_config};
 use crate::{
@@ -122,6 +123,18 @@ pub struct KopiaClient {
     mismatch: MismatchSlot,
     session: Mutex<Session>,
     bootstrap_lock: tokio::sync::Mutex<()>,
+    cache: DirCache,
+}
+
+/// Result of [`KopiaClient::resolve_path`].
+#[derive(Debug, Clone)]
+pub struct ResolvedPath {
+    /// How many components of the requested path exist (0 = only the snapshot root).
+    pub depth: usize,
+    /// Object ID of the deepest existing folder.
+    pub dir: Oid,
+    /// Its listing.
+    pub listing: Arc<DirManifest>,
 }
 
 impl fmt::Debug for KopiaClient {
@@ -166,6 +179,7 @@ impl KopiaClient {
             mismatch,
             session: Mutex::default(),
             bootstrap_lock: tokio::sync::Mutex::new(()),
+            cache: DirCache::new(DEFAULT_MAX_ENTRIES),
         })
     }
 
@@ -214,8 +228,38 @@ impl KopiaClient {
     }
 
     /// Lists a directory. The whole manifest is returned at once (Kopia has no pagination).
-    pub async fn list_directory(&self, dir: &Oid) -> Result<DirManifest> {
-        self.get_json(&Endpoint::Object(dir)).await
+    /// Listings are cached by object ID (immutable content hashes).
+    pub async fn list_directory(&self, dir: &Oid) -> Result<Arc<DirManifest>> {
+        if let Some(m) = self.cache.get(dir) {
+            return Ok(m);
+        }
+        let m: Arc<DirManifest> = Arc::new(self.get_json(&Endpoint::Object(dir)).await?);
+        self.cache.insert(dir.clone(), m.clone());
+        Ok(m)
+    }
+
+    /// Drops all cached directory listings.
+    pub fn clear_cache(&self) {
+        self.cache.clear();
+    }
+
+    /// Follows `path` (folder names) down from the snapshot root `root` **as far as it exists**.
+    ///
+    /// This is what keeps the user in "the same folder" while moving through time: if a folder
+    /// does not exist in this snapshot (or is now a file), the deepest existing ancestor is
+    /// returned instead, and [`ResolvedPath::depth`] tells how many components were found.
+    pub async fn resolve_path(&self, root: &Oid, path: &[String]) -> Result<ResolvedPath> {
+        let mut dir = root.clone();
+        let mut listing = self.list_directory(&dir).await?;
+        let mut depth = 0;
+        for name in path {
+            let next = listing.entries.iter().find(|e| e.name == *name && e.entry_type == EntryType::Directory);
+            let Some(next) = next else { break };
+            dir = next.obj.clone();
+            listing = self.list_directory(&dir).await?;
+            depth += 1;
+        }
+        Ok(ResolvedPath { depth, dir, listing })
     }
 
     /// Walks `path` (components separated by `/`, empty components ignored) down from the
@@ -230,8 +274,9 @@ impl KopiaClient {
             let listing = self.list_directory(&dir).await?;
             let entry = listing
                 .entries
-                .into_iter()
+                .iter()
                 .find(|e| e.name == *part)
+                .cloned()
                 .ok_or_else(|| Error::NotFound(parts[..=i].join("/")))?;
             if i + 1 == parts.len() {
                 return Ok(entry);

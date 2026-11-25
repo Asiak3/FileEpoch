@@ -35,6 +35,17 @@ fn file_bytes() -> Vec<u8> {
 }
 
 /// A directory with a file whose name is invalid on Windows, a symlink and a truncated file.
+/// Small tree for path-following tests: /a/b/c.txt, /a/x.txt, /f (a file).
+fn tree_dir(oid: &str) -> Option<String> {
+    let entries = match oid {
+        "k7001" => r#"{"name":"a","type":"d","obj":"k7002"},{"name":"f","type":"f","size":1,"obj":"0f01"}"#,
+        "k7002" => r#"{"name":"b","type":"d","obj":"k7003"},{"name":"x.txt","type":"f","size":1,"obj":"0f02"}"#,
+        "k7003" => r#"{"name":"c.txt","type":"f","size":1,"obj":"0f03"}"#,
+        _ => return None,
+    };
+    Some(format!(r#"{{"stream":"kopia:directory","entries":[{entries}]}}"#))
+}
+
 fn test_dir_json() -> String {
     format!(
         r#"{{"stream":"kopia:directory","entries":[
@@ -136,6 +147,7 @@ async fn handle(st: Arc<MockState>, req: Request<hyper::body::Incoming>) -> Resu
     if let Some(oid) = path.strip_prefix("/api/v1/objects/") {
         let body: Vec<u8> = match oid {
             TEST_DIR_OID => test_dir_json().into_bytes(),
+            o if tree_dir(o).is_some() => tree_dir(o).unwrap().into_bytes(),
             FILE_OID => file_bytes(),
             SHORT_FILE_OID => vec![0u8; 10], // entry says 1000 bytes
             o if o.starts_with('k') => fixture("dir-root.json").into_bytes(),
@@ -434,4 +446,41 @@ async fn resumes_downloads_with_range() {
         got.extend_from_slice(&c);
     }
     assert_eq!(got, file_bytes()[1000..]);
+}
+
+fn path(p: &[&str]) -> Vec<String> {
+    p.iter().map(|s| s.to_string()).collect()
+}
+
+#[tokio::test]
+async fn resolve_path_follows_the_folder_as_far_as_it_exists() {
+    let mock = Mock::start().await;
+    let client = mock.client();
+    let root: Oid = "k7001".parse().unwrap();
+
+    let r = client.resolve_path(&root, &path(&["a", "b"])).await.unwrap();
+    assert_eq!((r.depth, r.dir.as_str()), (2, "k7003"));
+    assert_eq!(r.listing.entries[0].name, "c.txt");
+
+    let r = client.resolve_path(&root, &path(&["a", "gone", "b"])).await.unwrap();
+    assert_eq!((r.depth, r.dir.as_str()), (1, "k7002"), "missing middle folder: stop at its parent");
+
+    let r = client.resolve_path(&root, &path(&["f", "b"])).await.unwrap();
+    assert_eq!((r.depth, r.dir.as_str()), (0, "k7001"), "a file with the folder's name does not count");
+
+    let r = client.resolve_path(&root, &[]).await.unwrap();
+    assert_eq!((r.depth, r.dir.as_str()), (0, "k7001"));
+    assert_eq!(r.listing.entries.len(), 2);
+}
+
+#[tokio::test]
+async fn directory_listings_are_cached_by_object_id() {
+    let mock = Mock::start().await;
+    let client = mock.client();
+    let root: Oid = "k7001".parse().unwrap();
+    for _ in 0..3 {
+        client.resolve_path(&root, &path(&["a", "b"])).await.unwrap();
+    }
+    let fetched = mock.requests().iter().filter(|r| r.starts_with("GET /api/v1/objects/")).count();
+    assert_eq!(fetched, 3, "each of the three folders is fetched once");
 }
