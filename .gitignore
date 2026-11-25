@@ -18,3 +18,7 @@ cookies.txt
 # OS
 Thumbs.db
 .DS_Store
+
+# Build output
+target/
+__pycache__/

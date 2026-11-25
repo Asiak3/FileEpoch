@@ -1,0 +1,76 @@
+# Rewind
+
+A Time Machine–style viewer and restore tool for [Kopia](https://kopia.io) backups.
+Rewind connects to a Kopia web server (ideally one started with `--readonly`), lets you move
+through snapshots on a timeline, browse files as they were, and restore them **to your own
+computer**.
+
+> **Status: early development.** The API client library and a command-line test tool work
+> against Kopia 0.23.1. The desktop app (Tauri) is not written yet.
+
+## Safety by design
+
+- **Read-only.** The client can only build `GET` requests to five whitelisted endpoints
+  ([docs/API.md](docs/API.md) §1). Endpoints that act on the server (restore on the server,
+  mounts, disconnect, policies, …) cannot be called, even if the server would allow them.
+- **Restores are local.** Files are downloaded through the API and written on your computer.
+  Existing files are never overwritten.
+- **Pinned TLS certificate.** Self-signed Kopia certificates are trusted by their SHA-256
+  fingerprint, checked before any password is typed. Certificate checks are never just disabled.
+- **Passwords** live only in the operating system's credential store (Windows Credential
+  Manager, macOS Keychain, Secret Service). They are never accepted as command-line options or
+  environment variables, and never logged.
+
+## Tested Kopia versions
+
+| Kopia  | Status |
+|--------|--------|
+| 0.23.1 | Tested (read-only server, filesystem storage) |
+
+Other versions trigger a warning. See [docs/API.md](docs/API.md) for the (undocumented) Kopia web
+API and how it was verified.
+
+## Building
+
+Requirements: Rust 1.88 or newer. On Windows, the Visual Studio C++ Build Tools.
+
+```sh
+cargo build --release
+cargo test
+```
+
+## Command-line tool
+
+`rewind-cli` exercises the client library. Connection settings can be passed as options or
+environment variables (`REWIND_SERVER`, `REWIND_USER`, `REWIND_FINGERPRINT`).
+
+```sh
+# 1. Read the server's certificate fingerprint (no login, no HTTP request).
+#    Compare it with "SERVER CERT SHA256" in the Kopia server log.
+rewind-cli --server https://backup.example:51515 fingerprint
+
+# 2. Use it. The password is asked once; --save-password stores it in the credential store.
+rewind-cli --server https://backup.example:51515 --user ui-user --fingerprint <sha256> --save-password status
+rewind-cli ... sources
+rewind-cli ... snapshots --source docs            # identical snapshots grouped; --all shows each
+rewind-cli ... ls --source docs --snapshot latest --path some/folder
+rewind-cli ... download --source docs --snapshot "2026-11-25 19:00" --path some/folder/file.pdf --out .
+rewind-cli ... forget-password
+```
+
+Times are shown in your local time zone. `download` writes `file (restored <snapshot time>).pdf`
+(or `--keep-name`), never overwrites, verifies the size and restores the modification time.
+
+## Repository layout
+
+| Path                     | Contents |
+|--------------------------|----------|
+| `crates/kopia-client`    | Read-only Kopia API client library (TLS pinning, session/CSRF handling, restore) |
+| `crates/rewind-cli`      | Command-line test tool |
+| `docs/API.md`            | Kopia web API notes: endpoints, authentication, what is forbidden and why |
+| `tools/verify-api.ps1`   | Checks the documented API against a live server (read-only) |
+| `tools/anonymize-samples.py` | Turns recorded responses into anonymized test fixtures |
+
+## License
+
+[Apache License 2.0](LICENSE), like Kopia. Rewind is not affiliated with the Kopia project.
