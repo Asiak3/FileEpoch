@@ -177,6 +177,14 @@ try {
     $sources = ($r.Text | ConvertFrom-Json -DateKind String).sources
     Save-Sample 'sources.json' $r.Text
     Write-Host "   $($sources.Count) source(s)"
+    # Source for the directory test: exact path, then path ending in "/<Source>", then substring.
+    $target = $null
+    if ($Source) {
+        $target = @($sources | Where-Object { $_.source.path -eq $Source })[0] ??
+                  @($sources | Where-Object { $_.source.path -like "*/$Source" })[0] ??
+                  @($sources | Where-Object { $_.source.path -like "*$Source*" })[0]
+        if (-not $target) { Write-Host "   No source matches '$Source'; using the first one with snapshots." }
+    }
 
     Write-Host "`n== 5. GET /api/v1/snapshots (per source)" -ForegroundColor Cyan
     $i = 0
@@ -204,7 +212,17 @@ try {
             Write-Host ("       newest snapshot (list):        {0}" -f (Format-Local $list[-1].startTime))
         }
         Write-Host ("       lastSnapshot (sources cache):  {0}" -f (Format-Local $s.lastSnapshot.startTime))
-        if (-not $chosen -and $list.Count -ge 1 -and ($Source -eq '' -or $src.path -like "*$Source*")) {
+        if ($list.Count -ge 1 -and $s.lastSnapshot.startTime) {
+            $listNewest = [DateTimeOffset]::Parse($list[-1].startTime)
+            $cached = [DateTimeOffset]::Parse($s.lastSnapshot.startTime)
+            if ($listNewest -gt $cached) {
+                Write-Host '       FRESHNESS: snapshot list is newer than the sources cache -> new snapshots appear without a server refresh.' -ForegroundColor Green
+            } else {
+                Write-Host '       freshness: inconclusive (sources cache is up to date; rerun shortly after the next scheduled snapshot).'
+            }
+        }
+        $isTarget = if ($target) { $src.path -eq $target.source.path } else { $true }
+        if (-not $chosen -and $list.Count -ge 1 -and $isTarget) {
             $chosen = [pscustomobject]@{ Source = $src; Newest = $list[-1] }
         }
     }

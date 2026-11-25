@@ -11,9 +11,10 @@ Status markers used in the endpoint table:
 - **Source** = verified by reading the v0.23.1 source code.
 - **Live** = verified against a real 0.23.1 server.
 
-**All JSON examples in this document were built from the Go types** (field names and formats taken
-from the `json:"…"` tags); **none of them is a recorded response** from a real server. They will be
-replaced with anonymized fixtures once live verification (§8) has been done.
+**The JSON examples in this document were built from the Go types** (field names and formats taken
+from the `json:"…"` tags); they are not recorded responses. The field names and types were then
+compared with real responses (§8.1) and match. Anonymized recorded responses live with the client's
+test fixtures.
 
 Placeholder values used in this document (not real data): `https://kopia.example:51515`, UI user
 `ui-user`, host `host1`, source user `user1`, source path `/data/docs`.
@@ -24,13 +25,17 @@ Placeholder values used in this document (not real data): `https://kopia.example
 
 | Need                              | Endpoint                                               | CSRF   | Status |
 |-----------------------------------|--------------------------------------------------------|--------|--------|
-| CSRF token + server version       | `GET /`                                                | no     | Source |
-| Repository status (`readonly`)    | `GET /api/v1/repo/status`                              | yes    | Source; 401 without credentials: Live |
-| List sources                      | `GET /api/v1/sources`                                  | yes    | Source |
-| List snapshots of a source        | `GET /api/v1/snapshots?host=&userName=&path=[&all=1]`  | yes    | Source |
-| List a directory                  | `GET /api/v1/objects/{oid}` (directory OID)            | **no** | Source |
-| Download a file                   | `GET /api/v1/objects/{oid}` (file OID)                 | **no** | Source |
+| CSRF token + server version       | `GET /`                                                | no     | Source, Live |
+| Repository status (`readonly`)    | `GET /api/v1/repo/status`                              | yes    | Source, Live |
+| List sources                      | `GET /api/v1/sources`                                  | yes    | Source, Live |
+| List snapshots of a source        | `GET /api/v1/snapshots?host=&userName=&path=[&all=1]`  | yes    | Source, Live |
+| List a directory                  | `GET /api/v1/objects/{oid}` (directory OID)            | **no** | Source, Live |
+| Download a file (incl. Range)     | `GET /api/v1/objects/{oid}` (file OID)                 | **no** | Source, Live |
 | Download a folder                 | *no endpoint*: recursive walk + one download per file  | —      | Source |
+
+"Live" = checked on 2026-11-25 against Kopia 0.23.1 (`--readonly`, filesystem storage, three
+sources, up to 12 snapshots per source) with [`tools/verify-api.ps1`](../tools/verify-api.ps1).
+All checks in §8 passed. See §8.1 for what the live run added.
 
 Whitelist for the app (method **and** path, nothing else):
 
@@ -418,18 +423,39 @@ pwsh -File tools/verify-api.ps1 -Server https://kopia.example:51515 -User ui-use
 Raw responses are saved to `local/api-samples/` (git-ignored). They contain real file names: do not
 commit them without anonymizing.
 
+### 8.1 Findings from the live run (2026-11-25, Kopia 0.23.1)
+
+- Every step passed: CSRF bootstrap, the `Invalid or missing CSRF token.` 401, `readonly: true`,
+  sources, snapshots, a directory listing without the CSRF header, and a `Range` request (206).
+- `GET /` sets both `Kopia-Session-Cookie` and `Kopia-Auth`.
+- `<title>` is exactly `KopiaUI v0.23.1`.
+- Snapshots come back **oldest first**, and the grouped list keeps the **oldest** snapshot of each
+  `rootID` group (checked: 12 snapshots → 4 groups).
+- `retention` values look like `latest-7..12`, `daily-2` (ranges are compacted when grouping).
+- Fractional seconds in timestamps vary in length (`…:19.636406861Z`, `…:17.514896Z`): the parser
+  must accept 0–9 digits.
+- On a read-only server `sources[].status` is `REMOTE`, and `schedule` may contain
+  `intervalSeconds`, `timeOfDay: [{hour, min}]` and `runMissed`.
+- `lastSnapshot` in `/api/v1/sources` is only updated when the server starts or refreshes
+  (`sourceManager.runReadOnly` never refreshes it), so the app takes the newest snapshot from
+  `/api/v1/snapshots`, never from `sources`.
+- A file OID without any prefix (plain hex) was downloaded, which confirms the OID grammar in §6.
+- Field names and JSON types of `repo/status`, `sources`, `snapshots` and the directory manifest
+  match §3–§6.
+
 ---
 
 ## 9. Open questions
 
-1. **Live verification pending.** So far only the unauthenticated `401` (`Missing credentials.` +
-   `WWW-Authenticate: Basic realm="Kopia"`), HTTP/1.1 over TLS and the self-signed certificate
-   (including pinning in `tools/verify-api.ps1`) have been checked live. §8 still has to be run
-   with credentials, and anonymized fixtures recorded for phase 1.
+1. **Not yet exercised live:** the `Access denied.` 401 (wrong password; deliberately not tested, it
+   writes a failed-login entry to the server log), the 403 for a non-UI user, behaviour after a
+   server restart (CSRF re-bootstrap), and a very large directory.
 2. **Data freshness.** Sources are only recomputed on each server *refresh*
    (`--refresh-interval`, 4 h by default). Snapshot lists are read on demand, but the repository
-   index may be cached. Do new snapshots (every 2 h) show up without calling
-   `POST /api/v1/repo/sync`? To be checked live (step 5 of the script). If not, choose between
+   index may be cached. Do new snapshots show up without calling `POST /api/v1/repo/sync`? The
+   first live run was inconclusive (a server refresh had happened after the newest snapshot). Rerun
+   `tools/verify-api.ps1` a few minutes after a scheduled snapshot: it prints `FRESHNESS: …` when the
+   snapshot list is ahead of the sources cache. If new snapshots do not appear, choose between
    (a) whitelisting `POST /api/v1/repo/sync` (does not write to the repository, but is a POST and
    triggers work on the server) or (b) recommending a shorter `--refresh-interval`.
 3. **Unhandled errors in `handleObjectGet`.** If `OpenObject` fails with anything other than "not
