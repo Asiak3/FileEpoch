@@ -1,0 +1,14 @@
+# Configuración local del asistente / rutas personales
+.claude/
+CLAUDE.md
+
+# Nunca versionar credenciales, capturas HAR sin sanitizar ni respuestas reales
+*.har
+*.cookies
+cookies.txt
+.env
+.env.*
+
+# Sistema
+Thumbs.db
+.DS_Store
