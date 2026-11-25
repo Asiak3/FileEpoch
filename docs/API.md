@@ -12,6 +12,10 @@ Marcadores de estado usados en la tabla de endpoints:
 - **Vivo** = verificado contra un servidor real 0.23.1.
 - **Pendiente** = no verificado todavía contra un servidor real.
 
+**Todos los ejemplos JSON de este documento se han construido a partir de los tipos Go** (nombres
+de campo y formatos exactos según las etiquetas `json:"…"`); **ninguno es una respuesta grabada**
+de un servidor real. Se sustituirán por fixtures anonimizados cuando se verifique en vivo (§8).
+
 Valores de ejemplo usados en este documento (marcadores de posición, no datos reales):
 `https://kopia.example:51515`, usuario `ui-user`, host `host1`, usuario de origen `user1`,
 ruta de origen `/data/docs`.
@@ -218,10 +222,15 @@ Notas:
 
 - Los tres parámetros deben indicarse; se usan como `SourceInfo` exacto (con `path` vacío se
   pediría otra cosa).
-- Sin `all`: el servidor **agrupa** snapshots con el mismo `rootID` (contenido idéntico) y deja el
-  más reciente de cada grupo, sumando sus `retention`/`pins`. Esto es el "agrupar idénticos" de la
-  web. Con `all=<cualquier valor no vacío>` devuelve todos.
-- Orden: del más reciente al más antiguo.
+- Orden: **del más antiguo al más reciente** (`snapshot.SortByTime(manifests, false)`: ascendente
+  por `startTime`, desempate por `endTime`).
+- Sin `all`: el servidor **agrupa** snapshots con el mismo `rootID` (contenido idéntico) y, como
+  recorre la lista en orden ascendente, conserva el **más antiguo** de cada grupo y le suma los
+  `retention`/`pins` de los demás. Esto es el "agrupar idénticos" de la web. Con
+  `all=<cualquier valor no vacío>` devuelve todos.
+- Consecuencia para la barra temporal: un grupo de snapshots idénticos se muestra con la fecha del
+  primero ("contenido vigente desde…"). Si la app quiere mostrar también "hasta…", debe pedir
+  `all=1` y agrupar ella misma por `rootID` (barato: es la misma lista).
 
 ```json
 {
@@ -260,8 +269,24 @@ siempre GET (el tamaño ya viene en la entrada del directorio).
 
 ### 6.1 Directorio
 
-Si el OID es de directorio (prefijo de contenido `k`, o `I…` = objeto índice que apunta a un
-directorio troceado) la respuesta es `application/json` con el `DirManifest` tal cual está
+**Gramática de un OID** (`repo/object/objectid.go`, `repo/content/index/id.go`):
+
+```
+OID      = "I"* ["Z"] CONTENT          ("I" y "Z" son excluyentes)
+CONTENT  = [prefijo g..z] HEX          (HEX: hash en hexadecimal, longitud par, hasta 64)
+```
+
+- `I` (una o varias) = objeto troceado con índice: lo usan **archivos grandes** y también
+  directorios grandes.
+- `Z` = objeto comprimido.
+- Prefijo de contenido `k` = metadatos de directorio; archivos normales no llevan prefijo.
+
+**Regla para el cliente:** saber si algo es archivo o directorio por el campo `type` de su entrada
+(o porque es el `rootID` de un snapshot), **nunca** por el prefijo del OID. La validación del
+`{oid}` en la lista blanca debe aceptar toda la gramática anterior, p. ej.
+`^(I+|Z)?[g-z]?[0-9a-f]{2,64}$`, y nada más (así tampoco se puede inyectar `/`, `?`, `..`).
+
+Si el OID es de directorio la respuesta es `application/json` con el `DirManifest` tal cual está
 guardado en el repositorio (no lo genera el servidor; es el formato interno de Kopia):
 
 ```json
