@@ -1,0 +1,20 @@
+[package]
+name = "rewind-cli"
+description = "Command-line test tool for the Rewind Kopia client"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "rewind-cli"
+path = "src/main.rs"
+
+[dependencies]
+kopia-client = { path = "../kopia-client" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+clap = { version = "4", features = ["derive", "env"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+rpassword = "7"
+anyhow = "1"
