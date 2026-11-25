@@ -1,0 +1,176 @@
+{
+  "localUsername": "user1",
+  "localHost": "host1",
+  "multiUser": true,
+  "sources": [
+    {
+      "source": {
+        "host": "host1",
+        "userName": "user1",
+        "path": "/data/source-1"
+      },
+      "status": "REMOTE",
+      "schedule": {
+        "timeOfDay": [
+          {
+            "hour": 4,
+            "min": 0
+          }
+        ],
+        "runMissed": true
+      },
+      "lastSnapshot": {
+        "id": "2e1c7e3a900c108c0b22de5c3f27a6ad",
+        "source": {
+          "host": "host1",
+          "userName": "user1",
+          "path": "/data/source-1"
+        },
+        "description": "",
+        "startTime": "2026-11-25T03:02:11.357620952Z",
+        "endTime": "2026-11-25T03:02:15.905905498Z",
+        "stats": {
+          "totalSize": 434617814060,
+          "excludedTotalSize": 0,
+          "fileCount": 0,
+          "cachedFiles": 215266,
+          "nonCachedFiles": 0,
+          "dirCount": 33616,
+          "excludedFileCount": 0,
+          "excludedDirCount": 3,
+          "ignoredErrorCount": 0,
+          "errorCount": 0
+        },
+        "rootEntry": {
+          "name": "source-1",
+          "type": "d",
+          "mode": "0777",
+          "mtime": "2026-05-09T15:01:18.8990412Z",
+          "uid": 100000,
+          "gid": 100000,
+          "obj": "k6de023fe67a8f3ac811d7754f4f95768",
+          "summ": {
+            "size": 434617814060,
+            "files": 215266,
+            "symlinks": 0,
+            "dirs": 33616,
+            "maxTime": "2026-11-24T16:46:38.7816226Z",
+            "numFailed": 0
+          }
+        }
+      },
+      "nextSnapshotTime": "2026-11-26T04:00:00+01:00"
+    },
+    {
+      "source": {
+        "host": "host1",
+        "userName": "user1",
+        "path": "/data/source-2"
+      },
+      "status": "REMOTE",
+      "schedule": {
+        "timeOfDay": [
+          {
+            "hour": 3,
+            "min": 0
+          }
+        ],
+        "runMissed": true
+      },
+      "lastSnapshot": {
+        "id": "6b4ee1d1e66d87d3cc16e77f4f2c829e",
+        "source": {
+          "host": "host1",
+          "userName": "user1",
+          "path": "/data/source-2"
+        },
+        "description": "",
+        "startTime": "2026-11-25T03:02:10.851933227Z",
+        "endTime": "2026-11-25T03:02:11.093393309Z",
+        "stats": {
+          "totalSize": 498997298158,
+          "excludedTotalSize": 0,
+          "fileCount": 0,
+          "cachedFiles": 13718,
+          "nonCachedFiles": 0,
+          "dirCount": 1178,
+          "excludedFileCount": 0,
+          "excludedDirCount": 4,
+          "ignoredErrorCount": 0,
+          "errorCount": 0
+        },
+        "rootEntry": {
+          "name": "source-2",
+          "type": "d",
+          "mode": "0777",
+          "mtime": "2026-11-24T21:16:26.29Z",
+          "uid": 100000,
+          "gid": 100000,
+          "obj": "kdbcb904894cbe86bd3e97bad041c20ee",
+          "summ": {
+            "size": 498997298158,
+            "files": 13718,
+            "symlinks": 0,
+            "dirs": 1178,
+            "maxTime": "2026-11-22T07:23:40.38Z",
+            "numFailed": 0
+          }
+        }
+      },
+      "nextSnapshotTime": "2026-11-26T03:00:00+01:00"
+    },
+    {
+      "source": {
+        "host": "host1",
+        "userName": "user1",
+        "path": "/data/source-3"
+      },
+      "status": "REMOTE",
+      "schedule": {
+        "intervalSeconds": 7200,
+        "runMissed": true
+      },
+      "lastSnapshot": {
+        "id": "60b521061b68e3a33be054cb943a1838",
+        "source": {
+          "host": "host1",
+          "userName": "user1",
+          "path": "/data/source-3"
+        },
+        "description": "",
+        "startTime": "2026-11-25T18:00:00.033917569Z",
+        "endTime": "2026-11-25T18:00:00.243898622Z",
+        "stats": {
+          "totalSize": 44660763930,
+          "excludedTotalSize": 0,
+          "fileCount": 0,
+          "cachedFiles": 42141,
+          "nonCachedFiles": 0,
+          "dirCount": 3816,
+          "excludedFileCount": 0,
+          "excludedDirCount": 0,
+          "ignoredErrorCount": 0,
+          "errorCount": 0
+        },
+        "rootEntry": {
+          "name": "source-3",
+          "type": "d",
+          "mode": "0775",
+          "mtime": "2026-10-15T20:25:47.036935657Z",
+          "uid": 100000,
+          "gid": 100033,
+          "obj": "k097e226948f11e2cc911e50c1729f6bc",
+          "summ": {
+            "size": 44660763930,
+            "files": 42141,
+            "symlinks": 0,
+            "dirs": 3816,
+            "maxTime": "2026-11-25T12:24:37.300929539Z",
+            "numFailed": 0
+          }
+        }
+      },
+      "nextSnapshotTime": "2026-11-25T21:00:00+01:00"
+    }
+  ]
+}

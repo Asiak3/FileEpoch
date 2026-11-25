@@ -1,0 +1,183 @@
+{
+  "stream": "kopia:directory",
+  "entries": [
+    {
+      "name": "dir-01",
+      "type": "d",
+      "mode": "0777",
+      "mtime": "2026-05-16T04:41:17.514896Z",
+      "uid": 100000,
+      "gid": 100000,
+      "obj": "k54b89750aa1d8e64bdd88e8bd2a9f99b",
+      "summ": {
+        "size": 172607742529,
+        "files": 30542,
+        "symlinks": 0,
+        "dirs": 10895,
+        "maxTime": "2026-11-24T16:46:38.7816226Z",
+        "numFailed": 0
+      }
+    },
+    {
+      "name": "dir-02",
+      "type": "d",
+      "mode": "0777",
+      "mtime": "2025-01-03T19:04:42.9308595Z",
+      "uid": 100000,
+      "gid": 100000,
+      "obj": "ke17eab9b6051817e515bd5216fd539d4",
+      "summ": {
+        "size": 116903128794,
+        "files": 15742,
+        "symlinks": 0,
+        "dirs": 5,
+        "maxTime": "2025-01-03T19:37:04.035553Z",
+        "numFailed": 0
+      }
+    },
+    {
+      "name": "dir-03",
+      "type": "d",
+      "mode": "0777",
+      "mtime": "2025-01-03T19:40:02.5621438Z",
+      "uid": 100000,
+      "gid": 100000,
+      "obj": "k0b7b2af6c851b52df02bcf79f1080f67",
+      "summ": {
+        "size": 7237725586,
+        "files": 485,
+        "symlinks": 0,
+        "dirs": 1,
+        "maxTime": "2020-05-03T11:49:56Z",
+        "numFailed": 0
+      }
+    },
+    {
+      "name": "dir-04",
+      "type": "d",
+      "mode": "0777",
+      "mtime": "2025-08-03T13:00:16.7344107Z",
+      "uid": 100000,
+      "gid": 100000,
+      "obj": "k64c5246260b2fccb78c2e7f3742c924a",
+      "summ": {
+        "size": 41692044,
+        "files": 163,
+        "symlinks": 0,
+        "dirs": 19,
+        "maxTime": "2025-08-03T13:00:16.7217057Z",
+        "numFailed": 0
+      }
+    },
+    {
+      "name": "dir-05",
+      "type": "d",
+      "mode": "0777",
+      "mtime": "2025-01-03T19:49:28.86422Z",
+      "uid": 100000,
+      "gid": 100000,
+      "obj": "kd5e3ea3f6e651c68d37b9acdace212f6",
+      "summ": {
+        "size": 20024281757,
+        "files": 12544,
+        "symlinks": 0,
+        "dirs": 37,
+        "maxTime": "2025-01-03T19:49:33.4979424Z",
+        "numFailed": 0
+      }
+    },
+    {
+      "name": "dir-06",
+      "type": "d",
+      "mode": "0777",
+      "mtime": "2026-05-09T15:01:25.138032Z",
+      "uid": 100000,
+      "gid": 100000,
+      "obj": "k49f85403cf38c0087676a3c980a2024d",
+      "summ": {
+        "size": 6910132752,
+        "files": 37009,
+        "symlinks": 0,
+        "dirs": 17559,
+        "maxTime": "2026-05-12T00:00:08.1477714Z",
+        "numFailed": 0
+      }
+    },
+    {
+      "name": "dir-07",
+      "type": "d",
+      "mode": "0777",
+      "mtime": "2026-05-09T14:48:49.3331495Z",
+      "uid": 100000,
+      "gid": 100000,
+      "obj": "k001804aae429ed0165ab422d5c7c188b",
+      "summ": {
+        "size": 7208796165,
+        "files": 733,
+        "symlinks": 0,
+        "dirs": 1797,
+        "maxTime": "2026-05-09T14:22:43.2037126Z",
+        "numFailed": 0
+      }
+    },
+    {
+      "name": "dir-08",
+      "type": "d",
+      "mode": "0777",
+      "mtime": "2025-08-03T13:00:16.7354553Z",
+      "uid": 100000,
+      "gid": 100000,
+      "obj": "k7e6356f6946842c1f8b1f2fe8607e9cb",
+      "summ": {
+        "size": 73718929376,
+        "files": 96720,
+        "symlinks": 0,
+        "dirs": 18,
+        "maxTime": "2025-08-03T13:00:16.7481402Z",
+        "numFailed": 0
+      }
+    },
+    {
+      "name": "dir-09",
+      "type": "d",
+      "mode": "0777",
+      "mtime": "2026-01-21T15:11:57.906247Z",
+      "uid": 100000,
+      "gid": 100000,
+      "obj": "k8850bb734757141d2931b758b42e118e",
+      "summ": {
+        "size": 1412969,
+        "files": 1,
+        "symlinks": 0,
+        "dirs": 1,
+        "maxTime": "2026-01-21T13:25:18Z",
+        "numFailed": 0
+      }
+    },
+    {
+      "name": "dir-10",
+      "type": "d",
+      "mode": "0777",
+      "mtime": "2025-01-03T20:14:23.2961333Z",
+      "uid": 100000,
+      "gid": 100000,
+      "obj": "keecf3b103224062f99c8b60f920f4b47",
+      "summ": {
+        "size": 29963972088,
+        "files": 21327,
+        "symlinks": 0,
+        "dirs": 3283,
+        "maxTime": "2025-12-12T11:52:34.462Z",
+        "numFailed": 0
+      }
+    }
+  ],
+  "summary": {
+    "size": 434617814060,
+    "files": 215266,
+    "symlinks": 0,
+    "dirs": 33616,
+    "maxTime": "2026-11-24T16:46:38.7816226Z",
+    "numFailed": 0
+  }
+}

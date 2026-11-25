@@ -1,0 +1,28 @@
+{
+  "snapshots": [
+    {
+      "id": "2e1c7e3a900c108c0b22de5c3f27a6ad",
+      "description": "",
+      "startTime": "2026-11-25T03:02:11.357620952Z",
+      "endTime": "2026-11-25T03:02:15.905905498Z",
+      "summary": {
+        "size": 434617814060,
+        "files": 215266,
+        "symlinks": 0,
+        "dirs": 33616,
+        "maxTime": "2026-11-24T16:46:38.7816226Z",
+        "numFailed": 0
+      },
+      "rootID": "k6de023fe67a8f3ac811d7754f4f95768",
+      "retention": [
+        "daily-1",
+        "weekly-1",
+        "monthly-1",
+        "annual-1"
+      ],
+      "pins": []
+    }
+  ],
+  "unfilteredCount": 1,
+  "uniqueCount": 1
+}
