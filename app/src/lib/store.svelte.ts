@@ -8,6 +8,7 @@ import {
   type ApiError,
   type ColumnId,
   type ColumnSetting,
+  type SavedColumn,
   type ConnectRequest,
   type ConnectResult,
   type Entry,
@@ -35,6 +36,9 @@ export const DEFAULT_COLUMNS: ColumnSetting[] = [
 
 export const MIN_COLUMN = 60;
 export const MAX_COLUMN = 520;
+/** The name column: narrowest width, and widest after resizing. */
+export const NAME_MIN = 200;
+export const NAME_MAX = 1600;
 type Screen = "loading" | "connect" | "mismatch" | "main";
 
 function normalize(s: string): string {
@@ -71,6 +75,11 @@ class AppStore {
     }),
   );
   visibleColumns = $derived(this.columns.filter((c) => c.visible));
+  /** Width of the name column, or null while it fills the free space (until the user resizes it). */
+  nameWidth = $derived.by(() => {
+    const w = this.settings.columns?.find((c) => c.id === "name")?.width;
+    return w ? Math.min(NAME_MAX, Math.max(NAME_MIN, w)) : null;
+  });
   /** Error shown on the connect screen. */
   connectError = $state<ApiError | null>(null);
   /** Certificate presented by the server when it did not match the trusted one. */
@@ -391,7 +400,16 @@ class AppStore {
   setColumn(id: ColumnId, patch: Partial<ColumnSetting>) {
     const columns = this.columns.map((c) => (c.id === id ? { ...c, ...patch } : c));
     if (patch.visible === false && this.sortKey === id) this.sortKey = "name";
-    void this.saveSettings({ columns });
+    void this.saveSettings({ columns: this.withName(columns, this.nameWidth) });
+  }
+
+  /** null: the name column fills the free space again. */
+  setNameWidth(width: number | null) {
+    void this.saveSettings({ columns: this.withName(this.columns, width) });
+  }
+
+  private withName(columns: ColumnSetting[], nameWidth: number | null): SavedColumn[] {
+    return nameWidth === null ? columns : [...columns, { id: "name", visible: true, width: Math.round(nameWidth) }];
   }
 
   resetColumns() {

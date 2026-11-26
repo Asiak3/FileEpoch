@@ -13,6 +13,13 @@ export interface ColumnSetting {
   width: number;
 }
 
+/** As saved: also "name", with the width of the name column once the user has resized it. */
+export interface SavedColumn {
+  id: ColumnId | "name";
+  visible: boolean;
+  width: number;
+}
+
 export interface Settings {
   server: string;
   user: string;
@@ -22,7 +29,7 @@ export interface Settings {
   groupIdentical: boolean;
   lastSource: string;
   viewMode: ViewMode;
-  columns: ColumnSetting[];
+  columns: SavedColumn[];
   restoreNaming: "suffix" | "original";
   suffixDate: "snapshot" | "modified";
   conflict: "rename" | "skip" | "overwrite";

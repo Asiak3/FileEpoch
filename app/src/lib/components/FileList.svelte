@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { ColumnId, Entry, ViewMode } from "../api";
-  import { app, DEFAULT_COLUMNS, MAX_COLUMN, MIN_COLUMN, type SortKey } from "../store.svelte";
+  import { app, DEFAULT_COLUMNS, MAX_COLUMN, MIN_COLUMN, NAME_MAX, NAME_MIN, type SortKey } from "../store.svelte";
   import { i18n, t } from "../i18n.svelte";
   import { category, extension } from "../filetypes";
   import FileIcon from "./FileIcon.svelte";
@@ -25,13 +25,15 @@
   let viewport: HTMLDivElement | undefined = $state();
   let height = $state(0);
   let width = $state(0);
+  let outerWidth = $state(0);
+  let header: HTMLDivElement | undefined = $state();
   let scrollTop = $state(0);
   let anchor: string | null = null;
   let typeahead = "";
   let typeaheadTimer: ReturnType<typeof setTimeout> | undefined;
   let menu = $state<{ x: number; y: number; items: MenuItem[] } | null>(null);
   /** Widths while a column separator is being dragged (saved on release). */
-  let liveWidths = $state<Partial<Record<ColumnId, number>>>({});
+  let liveWidths = $state<Partial<Record<ColumnId | "name", number>>>({});
 
   let mode = $derived(app.settings.viewMode);
   let geo = $derived(geometry[mode]);
@@ -46,7 +48,14 @@
   let pageRows = $derived(Math.max(1, Math.floor(height / geo.rowH) - 1));
 
   let columns = $derived(app.visibleColumns.map((c) => ({ ...c, width: liveWidths[c.id] ?? c.width })));
-  let template = $derived(`minmax(150px, 1fr) ${columns.map((c) => `${c.width}px`).join(" ")}`);
+  // Like Explorer: each separator sizes the column on its left. Until the name column is resized it
+  // fills the free space; after that a filler column takes it. Too wide → horizontal scrolling.
+  let nameWidth = $derived(liveWidths.name ?? app.nameWidth);
+  let fixed = $derived(columns.map((c) => `${c.width}px`).join(" "));
+  let template = $derived(nameWidth === null ? `minmax(${NAME_MIN}px, 1fr) ${fixed}` : `${nameWidth}px ${fixed} minmax(0, 1fr)`);
+  let minWidth = $derived((nameWidth ?? NAME_MIN) + columns.reduce((a, c) => a + c.width, 0) + 20);
+  /** Width of the vertical scrollbar, so the header lines up with the rows. */
+  let scrollbar = $derived(Math.max(0, outerWidth - width));
 
   const columnLabel: Record<ColumnId, string> = {
     mtime: "list.modified",
@@ -256,37 +265,59 @@
 
   // --- column resizing ------------------------------------------------------------------------
 
-  let drag: { id: ColumnId; startX: number; startW: number } | null = null;
+  type ResizeId = ColumnId | "name";
+  let drag: { id: ResizeId; startX: number; startW: number } | null = null;
 
-  function startResize(e: PointerEvent, id: ColumnId, w: number) {
+  function clampWidth(id: ResizeId, w: number): number {
+    const [lo, hi] = id === "name" ? [NAME_MIN, NAME_MAX] : [MIN_COLUMN, MAX_COLUMN];
+    return Math.round(Math.min(hi, Math.max(lo, w)));
+  }
+
+  /** Current width; the name column is measured while it fills the free space. */
+  function currentWidth(id: ResizeId, el: HTMLElement): number {
+    if (id !== "name") return columns.find((c) => c.id === id)?.width ?? defaultWidth(id);
+    return nameWidth ?? (el.parentElement?.getBoundingClientRect().width ?? NAME_MIN);
+  }
+
+  function saveWidth(id: ResizeId, w: number) {
+    if (id === "name") app.setNameWidth(w);
+    else app.setColumn(id, { width: w });
+  }
+
+  function startResize(e: PointerEvent, id: ResizeId) {
+    if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
-    drag = { id, startX: e.clientX, startW: w };
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    const el = e.currentTarget as HTMLElement;
+    drag = { id, startX: e.clientX, startW: currentWidth(id, el) };
+    el.setPointerCapture(e.pointerId);
   }
 
   function moveResize(e: PointerEvent) {
     if (!drag) return;
-    // The separator is the left edge of the column: dragging right makes the column narrower.
-    const w = Math.round(Math.min(MAX_COLUMN, Math.max(MIN_COLUMN, drag.startW - (e.clientX - drag.startX))));
-    liveWidths = { ...liveWidths, [drag.id]: w };
+    liveWidths = { ...liveWidths, [drag.id]: clampWidth(drag.id, drag.startW + (e.clientX - drag.startX)) };
   }
 
   function endResize() {
     if (!drag) return;
     const w = liveWidths[drag.id];
-    if (w !== undefined) app.setColumn(drag.id, { width: w });
+    if (w !== undefined) saveWidth(drag.id, w);
     drag = null;
     liveWidths = {};
   }
 
-  function keyResize(e: KeyboardEvent, id: ColumnId, w: number) {
+  function keyResize(e: KeyboardEvent, id: ResizeId) {
     const step = e.shiftKey ? 40 : 10;
     if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
       e.preventDefault();
-      const next = w + (e.key === "ArrowLeft" ? step : -step);
-      app.setColumn(id, { width: Math.min(MAX_COLUMN, Math.max(MIN_COLUMN, next)) });
+      const w = currentWidth(id, e.currentTarget as HTMLElement);
+      saveWidth(id, clampWidth(id, w + (e.key === "ArrowRight" ? step : -step)));
     }
+  }
+
+  function resetWidth(id: ResizeId) {
+    if (id === "name") app.setNameWidth(null);
+    else app.setColumn(id, { width: defaultWidth(id) });
   }
 
   function defaultWidth(id: ColumnId): number {
@@ -405,32 +436,27 @@
   {/if}
 
   {#if mode === "details"}
-    <div class="header" role="toolbar" aria-label={t("menu.columns")} tabindex="-1" oncontextmenu={(e) => (e.preventDefault(), openMenu(e.clientX, e.clientY, headerMenu()))}>
-      {@render sortButton("name", t("list.name"), "c-name")}
-      {#each columns as c (c.id)}
-        <div class="hcell" class:right={c.id === "size" || c.id === "items"}>
-          <!-- A focusable separator is an interactive "window splitter" in ARIA; Svelte's lint does not know. -->
-          <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-          <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-          <div
-            class="resizer"
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="{t('col.resize')}: {t(columnLabel[c.id])}"
-            aria-valuenow={c.width}
-            aria-valuemin={MIN_COLUMN}
-            aria-valuemax={MAX_COLUMN}
-            tabindex="0"
-            onpointerdown={(e) => startResize(e, c.id, c.width)}
-            onpointermove={moveResize}
-            onpointerup={endResize}
-            onpointercancel={endResize}
-            ondblclick={() => app.setColumn(c.id, { width: defaultWidth(c.id) })}
-            onkeydown={(e) => keyResize(e, c.id, c.width)}
-          ></div>
-          {@render sortButton(c.id, t(columnLabel[c.id]), "")}
+    <div
+      class="header"
+      bind:this={header}
+      style:padding-right="{6 + scrollbar}px"
+      role="toolbar"
+      aria-label={t("menu.columns")}
+      tabindex="-1"
+      oncontextmenu={(e) => (e.preventDefault(), openMenu(e.clientX, e.clientY, headerMenu()))}
+    >
+      <div class="header-row" style:min-width="{minWidth}px">
+        <div class="hcell">
+          {@render sortButton("name", t("list.name"), "")}
+          {@render resizer("name", t("list.name"), nameWidth)}
         </div>
-      {/each}
+        {#each columns as c (c.id)}
+          <div class="hcell" class:right={c.id === "size" || c.id === "items"}>
+            {@render sortButton(c.id, t(columnLabel[c.id]), "")}
+            {@render resizer(c.id, t(columnLabel[c.id]), c.width)}
+          </div>
+        {/each}
+      </div>
     </div>
   {/if}
 
@@ -439,7 +465,11 @@
     bind:this={viewport}
     bind:clientHeight={height}
     bind:clientWidth={width}
-    onscroll={() => (scrollTop = viewport?.scrollTop ?? 0)}
+    bind:offsetWidth={outerWidth}
+    onscroll={() => {
+      scrollTop = viewport?.scrollTop ?? 0;
+      if (header && viewport) header.scrollLeft = viewport.scrollLeft;
+    }}
     onpointerdown={onBackgroundDown}
     oncontextmenu={onEmptyContext}
     {onkeydown}
@@ -449,7 +479,7 @@
     aria-label={t("list.name")}
     aria-activedescendant={focusIndex >= 0 ? rowId(focusIndex) : undefined}
   >
-    <div class="spacer" style:height="{rowCount * geo.rowH}px">
+    <div class="spacer" style:height="{rowCount * geo.rowH}px" style:min-width={mode === "details" ? `${minWidth}px` : null}>
       {#each slice as entry, k (entry.name)}
         {@const i = startRow * cols + k}
         {@const selected = app.selection.has(entry.name)}
@@ -522,6 +552,28 @@
   <ContextMenu x={menu.x} y={menu.y} items={menu.items} onclose={closeMenu} />
 {/if}
 
+{#snippet resizer(id: ResizeId, label: string, w: number | null)}
+  <!-- A focusable separator is an interactive "window splitter" in ARIA; Svelte's lint does not know. -->
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+  <div
+    class="resizer"
+    role="separator"
+    aria-orientation="vertical"
+    aria-label="{t('col.resize')}: {label}"
+    aria-valuenow={w ?? undefined}
+    aria-valuemin={id === "name" ? NAME_MIN : MIN_COLUMN}
+    aria-valuemax={id === "name" ? NAME_MAX : MAX_COLUMN}
+    tabindex="0"
+    onpointerdown={(e) => startResize(e, id)}
+    onpointermove={moveResize}
+    onpointerup={endResize}
+    onpointercancel={endResize}
+    ondblclick={() => resetWidth(id)}
+    onkeydown={(e) => keyResize(e, id)}
+  ></div>
+{/snippet}
+
 {#snippet sortButton(key: SortKey, label: string, cls: string)}
   <button
     class="col {cls}"
@@ -558,11 +610,16 @@
   }
 
   .header {
+    flex: none;
+    overflow: hidden;
+    padding-left: 6px;
+  }
+
+  .header-row {
     display: grid;
     grid-template-columns: var(--cols);
     align-items: center;
     height: 34px;
-    margin: 0 6px;
     padding: 0 10px;
     border-bottom: 1px solid var(--border);
   }
@@ -572,7 +629,6 @@
     display: flex;
     align-items: center;
     height: 100%;
-    padding-left: 8px;
     min-width: 0;
   }
 
@@ -582,7 +638,7 @@
 
   .resizer {
     position: absolute;
-    left: -4px;
+    right: -5px;
     top: 6px;
     bottom: 6px;
     width: 9px;
@@ -625,8 +681,13 @@
     white-space: nowrap;
   }
 
+  /* Header labels start where the cell text starts. */
   .hcell .col {
     margin: 0;
+  }
+
+  .hcell:first-child .col {
+    margin-left: -8px;
   }
 
   .col:hover {
@@ -642,7 +703,7 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    overflow-x: hidden;
+    overflow-x: auto;
     outline: none;
     padding: 4px 6px 8px;
   }
@@ -710,6 +771,7 @@
   }
 
   .c.right {
+    padding-right: 8px;
     text-align: right;
   }
 
