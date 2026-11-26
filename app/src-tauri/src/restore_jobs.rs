@@ -385,10 +385,13 @@ pub fn open_restore_folder(manager: tauri::State<'_, RestoreManager>, id: u64) -
     let spawn = |cmd: &mut std::process::Command| cmd.spawn().map(|_| ()).map_err(|e| CmdError::other(e.to_string()));
     #[cfg(windows)]
     {
+        use std::os::windows::process::CommandExt;
         let mut cmd = std::process::Command::new("explorer.exe");
+        // Explorer parses its own command line and expects exactly `/select,"C:\path with spaces"`.
+        // The path comes from this job's own result; it cannot contain `"` (invalid on Windows).
         match &target {
-            Some(p) => cmd.arg(format!("/select,{}", p.display())),
-            None => cmd.arg(&dest),
+            Some(p) => cmd.raw_arg(format!("/select,\"{}\"", p.display())),
+            None => cmd.raw_arg(format!("\"{}\"", dest.display())),
         };
         spawn(&mut cmd)
     }

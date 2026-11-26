@@ -28,6 +28,14 @@
     void app.restore(selected.length ? selected : null);
   }
 
+  // The selection only contains visible items (a search hides some), so the restore button,
+  // the status bar and what is actually restored always agree.
+  $effect(() => {
+    const names = new Set(app.visible.map((e) => e.name));
+    const selection = app.selection;
+    if ([...selection].some((n) => !names.has(n))) app.selection = new Set([...selection].filter((n) => names.has(n)));
+  });
+
   let active = $derived(app.activeJobs);
   let activePct = $derived.by(() => {
     const total = active.reduce((a, j) => a + j.bytesTotal, 0);
