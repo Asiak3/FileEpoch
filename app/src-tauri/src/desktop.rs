@@ -94,6 +94,9 @@ pub fn set_tray(app: &AppHandle, enabled: bool, locale: &str) -> tauri::Result<(
 
 /// Closing the window: hide it to the tray when enabled; otherwise quit (asking if restores run).
 pub fn on_window_event(window: &tauri::Window, event: &WindowEvent) {
+    if window.label() != "main" {
+        return; // e.g. the licenses window just closes
+    }
     if let WindowEvent::CloseRequested { api, .. } = event {
         let app = window.app_handle();
         if app.state::<TrayState>().enabled.load(Ordering::Relaxed) {
@@ -155,6 +158,26 @@ pub fn set_autostart(app: AppHandle, enabled: bool) -> Result<bool, CmdError> {
     let result = if enabled { launcher.enable() } else { launcher.disable() };
     result.map_err(|e| CmdError::other(format!("start with the system: {e}")))?;
     Ok(launcher.is_enabled().unwrap_or(false))
+}
+
+/// Opens the license notices (app/public/third-party-notices.html, part of the app) in their own
+/// window. The page is static (no scripts) and the window gets no plugin permissions (the
+/// capabilities only name the main window).
+/// (Async on purpose: creating a window from a synchronous command deadlocks on Windows.)
+#[tauri::command]
+pub async fn open_licenses(app: AppHandle) -> Result<(), CmdError> {
+    if let Some(w) = app.get_webview_window("licenses") {
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+        return Ok(());
+    }
+    tauri::WebviewWindowBuilder::new(&app, "licenses", tauri::WebviewUrl::App("third-party-notices.html".into()))
+        .title("FileEpoch – licenses")
+        .inner_size(860.0, 720.0)
+        .min_inner_size(480.0, 360.0)
+        .build()
+        .map(|_| ())
+        .map_err(|e| CmdError::other(e.to_string()))
 }
 
 #[tauri::command]

@@ -375,6 +375,9 @@ export function mockApi(): Api {
     async quitApp() {
       location.reload();
     },
+    async openLicenses() {
+      window.open("/third-party-notices.html", "_blank", "noopener");
+    },
     async openProjectPage() {
       window.open("https://github.com/Asiak3/FileEpoch", "_blank", "noopener");
     },

@@ -7,4 +7,5 @@ FileEpoch is not affiliated with or endorsed by the Kopia project. "Kopia" is us
 describe compatibility.
 
 FileEpoch includes third-party open-source components (Rust crates and npm packages) under their
-own licenses (mostly MIT and Apache-2.0); see Cargo.lock and app/package-lock.json for the list.
+own licenses (MIT, Apache-2.0, BSD, ISC, Zlib, Unicode, MPL-2.0 and similar). Their license texts
+are in app/public/third-party-notices.html, which is also shown in the app (Settings → About).

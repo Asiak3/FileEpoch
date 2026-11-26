@@ -78,6 +78,7 @@ fn main() {
             desktop::get_autostart,
             desktop::set_autostart,
             desktop::open_project_page,
+            desktop::open_licenses,
             updates::check_update,
             updates::install_update,
             updates::open_release_page,

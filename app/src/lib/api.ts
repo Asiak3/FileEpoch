@@ -225,6 +225,8 @@ export interface Api {
   /** Cancels restores and quits (after the user confirmed). */
   quitApp(): Promise<void>;
   openProjectPage(): Promise<void>;
+  /** Opens the license notices of FileEpoch and its components in a separate window. */
+  openLicenses(): Promise<void>;
   /** Closing/quitting while restores run: the UI asks first. */
   onQuitRequested(callback: () => void): Promise<() => void>;
   /** Newer version on GitHub, or null when up to date. */
@@ -278,6 +280,7 @@ async function tauriApi(): Promise<Api> {
     setAutostart: (enabled) => invoke("set_autostart", { enabled }),
     quitApp: () => invoke("quit_app"),
     openProjectPage: () => invoke("open_project_page"),
+    openLicenses: () => invoke("open_licenses"),
     onQuitRequested: (callback) => listen("quit-requested", () => callback()),
     checkUpdate: () => invoke("check_update"),
     installUpdate: () => invoke("install_update"),

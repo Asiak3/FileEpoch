@@ -34,6 +34,7 @@ Run what CI runs:
 
 ```sh
 node tools/set-version.mjs --check
+node tools/third-party-notices.mjs --check   # needs: cargo install cargo-about --features cli
 cd app && npx svelte-check --threshold warning && npm run build && cd ..
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
@@ -48,6 +49,9 @@ cargo test --workspace
 - **No real data in the repository**: no real server addresses, user names, fingerprints, paths or
   file names. Test fixtures are anonymized (`tools/anonymize-samples.py`).
 - **Passwords** only through the system credential store; never logged.
+- **Dependencies:** only licenses listed in `about.toml` are accepted. After adding or updating a
+  dependency, run `node tools/third-party-notices.mjs` and commit the regenerated
+  `app/public/third-party-notices.html` (shown in Settings → About).
 - Keep the three languages (English, Spanish, German) in `app/src/lib/i18n.svelte.ts` complete.
   New strings in English are fine; a maintainer or translator fills in the others.
 

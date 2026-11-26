@@ -61,6 +61,13 @@ jobs:
         working-directory: app
         run: npm ci
 
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-about@0.9.3
+
+      - name: License notices are up to date
+        run: node tools/third-party-notices.mjs --check
+
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

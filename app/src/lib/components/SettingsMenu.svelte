@@ -261,6 +261,7 @@
               github.com/Asiak3/FileEpoch <Icon name="external" size={13} />
             </button>
             <p class="text small">{t("settings.about.license")}</p>
+            <button class="link" onclick={() => app.api.openLicenses()}>{t("settings.about.licenses")}</button>
           {/if}
         </div>
       </section>

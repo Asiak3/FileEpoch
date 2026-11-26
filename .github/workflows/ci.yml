@@ -50,6 +50,13 @@ jobs:
         working-directory: app
         run: npm ci
 
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-about@0.9.3
+
+      - name: License notices are up to date
+        run: node tools/third-party-notices.mjs --check
+
       - name: UI type check
         working-directory: app
         run: npx svelte-check --threshold warning
