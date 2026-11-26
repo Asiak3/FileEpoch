@@ -9,11 +9,11 @@
 
 use kopia_client::{ServerAddress, credentials};
 
-const DUMMY_SECRET: &str = "rewind-credential-store-check";
+const DUMMY_SECRET: &str = "fileepoch-credential-store-check";
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let server: ServerAddress = "https://credential-check.invalid:1".parse()?;
-    let user = "rewind-check";
+    let user = "fileepoch-check";
     match std::env::args().nth(1).as_deref() {
         Some("set") => {
             credentials::store(&server, user, DUMMY_SECRET)?;

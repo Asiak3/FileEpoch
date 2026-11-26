@@ -26,8 +26,9 @@ fn main() {
         .setup(|app| {
             let manager = restore_jobs::RestoreManager::start(app.handle());
             app.manage(manager);
-            // The window starts hidden (tauri.conf.json): shown now, unless Rewind was started
+            // The window starts hidden (tauri.conf.json): shown now, unless FileEpoch was started
             // with the system and lives in the tray.
+            desktop::migrate_autostart(app.handle());
             let settings = settings::load(app.handle());
             let locale =
                 if matches!(settings.language.as_str(), "es" | "de") { settings.language.as_str() } else { "en" };
@@ -63,5 +64,5 @@ fn main() {
             desktop::open_project_page,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Rewind");
+        .expect("error while running FileEpoch");
 }

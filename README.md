@@ -1,7 +1,7 @@
-# Rewind
+# FileEpoch
 
 A Time Machine–style viewer and restore tool for [Kopia](https://kopia.io) backups.
-Rewind connects to a Kopia web server (ideally one started with `--readonly`), lets you move
+FileEpoch connects to a Kopia web server (ideally one started with `--readonly`), lets you move
 through snapshots on a timeline, browse files as they were, and restore them **to your own
 computer**.
 
@@ -49,12 +49,12 @@ Windows 10/11).
 cd app
 npm install
 npm run tauri dev      # development, with hot reload
-npm run tauri build    # optimized build: target/release/rewind-app.exe
+npm run tauri build    # optimized build: target/release/fileepoch-app.exe
 ```
 
-On first start Rewind asks for the server address and user, shows the server certificate
+On first start FileEpoch asks for the server address and user, shows the server certificate
 fingerprint for you to compare with the Kopia server log, and asks for the password (optionally
-saved in the system credential store). A password saved with `rewind-cli --save-password` is used
+saved in the system credential store). A password saved with `fileepoch-cli --save-password` is used
 by the app too.
 
 Using it:
@@ -66,7 +66,7 @@ Using it:
   unchanged data only once, so this is not the space it takes on the server).
 - **Files** (below): double-click or Enter opens a folder, Backspace goes up, Alt+←/→ go back and
   forward, Ctrl+F searches the current folder, Ctrl/Shift+click selects several items.
-- **Staying in the folder while moving in time:** Rewind remembers the folder you opened. If it does
+- **Staying in the folder while moving in time:** FileEpoch remembers the folder you opened. If it does
   not exist at the selected time, the nearest existing parent folder is shown (the missing part of
   the path appears struck through); move to a time where it exists and you are back in it.
 - **Views:** details, list, large icons and tiles. In details, drag a column separator to resize
@@ -76,7 +76,7 @@ Using it:
   saved to disk. They can be switched off in the settings.
 - **Restoring:** select items and press *Restore* (or right-click → *Restore…*); with nothing
   selected the button restores the folder you are looking at (right-click on empty space does the
-  same). Rewind asks for the destination folder every time. Restores run one after another in the
+  same). FileEpoch asks for the destination folder every time. Restores run one after another in the
   background; the *Restores* panel shows progress, lets you cancel, and summarizes renamed items,
   skipped links and errors.
 - **Settings** (gear icon, top right) open in a window with tabs: System (language, tray, start
@@ -87,7 +87,7 @@ Using it:
   exists, keep both (default), skip it, or overwrite it — overwriting always asks first and lists
   what would be replaced. Optionally verify size and date of every restored file.
 - **Tray and start with Windows** (settings, *System* tab; both off by default): closing the window can keep
-  Rewind running next to the clock (click the icon to open it; *Quit* in its menu). Started with
+  FileEpoch running next to the clock (click the icon to open it; *Quit* in its menu). Started with
   Windows and with the tray option on, it starts hidden in the tray. Quitting while a restore runs
   asks first. The list of versions is reloaded every 5 minutes and when the window gets focus; the
   round arrow next to the number of versions checks right away (its tooltip shows the last check).
@@ -99,22 +99,22 @@ http://127.0.0.1:1420 with a mock backend (sample data, password `demo`). URL pa
 
 ## Command-line tool
 
-`rewind-cli` exercises the client library. Connection settings can be passed as options or
-environment variables (`REWIND_SERVER`, `REWIND_USER`, `REWIND_FINGERPRINT`).
+`fileepoch-cli` exercises the client library. Connection settings can be passed as options or
+environment variables (`FILEEPOCH_SERVER`, `FILEEPOCH_USER`, `FILEEPOCH_FINGERPRINT`).
 
 ```sh
 # 1. Read the server's certificate fingerprint (no login, no HTTP request).
 #    Compare it with "SERVER CERT SHA256" in the Kopia server log.
-rewind-cli --server https://backup.example:51515 fingerprint
+fileepoch-cli --server https://backup.example:51515 fingerprint
 
 # 2. Use it. The password is asked once; --save-password stores it in the credential store.
-rewind-cli --server https://backup.example:51515 --user ui-user --fingerprint <sha256> --save-password status
-rewind-cli ... sources
-rewind-cli ... snapshots --source docs            # identical snapshots grouped; --all shows each
-rewind-cli ... ls --source docs --snapshot latest --path some/folder
-rewind-cli ... download --source docs --snapshot "2026-11-25 19:00" --path some/folder/file.pdf --out .
-rewind-cli ... download --source docs --path some/folder --out .   # a whole folder (no --path: whole snapshot)
-rewind-cli ... forget-password
+fileepoch-cli --server https://backup.example:51515 --user ui-user --fingerprint <sha256> --save-password status
+fileepoch-cli ... sources
+fileepoch-cli ... snapshots --source docs            # identical snapshots grouped; --all shows each
+fileepoch-cli ... ls --source docs --snapshot latest --path some/folder
+fileepoch-cli ... download --source docs --snapshot "2026-11-25 19:00" --path some/folder/file.pdf --out .
+fileepoch-cli ... download --source docs --path some/folder --out .   # a whole folder (no --path: whole snapshot)
+fileepoch-cli ... forget-password
 ```
 
 Times are shown in your local time zone. `download` writes `file (version of <snapshot time>).pdf`
@@ -125,7 +125,7 @@ Times are shown in your local time zone. `download` writes `file (version of <sn
 | Path                     | Contents |
 |--------------------------|----------|
 | `crates/kopia-client`    | Read-only Kopia API client library (TLS pinning, session/CSRF handling, restore) |
-| `crates/rewind-cli`      | Command-line test tool |
+| `crates/fileepoch-cli`      | Command-line test tool |
 | `app/`                   | Desktop app: Svelte 5 user interface (`src/`) and Tauri 2 backend (`src-tauri/`) |
 | `docs/API.md`            | Kopia web API notes: endpoints, authentication, what is forbidden and why |
 | `tools/verify-api.ps1`   | Checks the documented API against a live server (read-only) |
@@ -133,8 +133,8 @@ Times are shown in your local time zone. `download` writes `file (version of <sn
 
 ## Author
 
-Rewind is written by A.C. — https://github.com/Asiak3/Rewind
+FileEpoch is written by A.C. — https://github.com/Asiak3/FileEpoch
 
 ## License
 
-[Apache License 2.0](LICENSE), like Kopia. Rewind is not affiliated with the Kopia project.
+[Apache License 2.0](LICENSE), like Kopia. FileEpoch is not affiliated with the Kopia project.

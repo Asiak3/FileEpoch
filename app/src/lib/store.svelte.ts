@@ -34,7 +34,7 @@ export const DEFAULT_COLUMNS: ColumnSetting[] = [
   { id: "owner", visible: false, width: 110 },
 ];
 
-/** How often the list of versions is reloaded while Rewind is open. */
+/** How often the list of versions is reloaded while FileEpoch is open. */
 const REFRESH_MS = 5 * 60_000;
 export const MIN_COLUMN = 60;
 export const MAX_COLUMN = 520;
@@ -205,7 +205,7 @@ class AppStore {
     this.applyPreferences();
     this.autostart = await this.api.getAutostart().catch(() => false);
     await this.api.onQuitRequested(() => void this.confirmQuit());
-    // New versions appear while Rewind stays open (e.g. in the tray): check every few minutes
+    // New versions appear while FileEpoch stays open (e.g. in the tray): check every few minutes
     // and when the window comes back.
     setInterval(() => void this.refreshSnapshots(), REFRESH_MS);
     window.addEventListener("focus", () => {

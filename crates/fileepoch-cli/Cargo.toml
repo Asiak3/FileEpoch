@@ -1,6 +1,6 @@
 [package]
-name = "rewind-cli"
-description = "Command-line test tool for the Rewind Kopia client"
+name = "fileepoch-cli"
+description = "Command-line test tool for the FileEpoch Kopia client"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,7 +8,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [[bin]]
-name = "rewind-cli"
+name = "fileepoch-cli"
 path = "src/main.rs"
 
 [dependencies]

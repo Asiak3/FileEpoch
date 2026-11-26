@@ -14,12 +14,12 @@ use crate::commands::CmdError;
 use crate::restore_jobs::RestoreManager;
 
 /// Public home of the project (shown as "by A.C." in the app).
-pub const PROJECT_URL: &str = "https://github.com/Asiak3/Rewind";
-/// Passed by the operating system when Rewind starts with it.
+pub const PROJECT_URL: &str = "https://github.com/Asiak3/FileEpoch";
+/// Passed by the operating system when FileEpoch starts with it.
 pub const AUTOSTART_ARG: &str = "--autostart";
-const TRAY_ID: &str = "rewind";
+const TRAY_ID: &str = "fileepoch";
 
-/// Whether closing the window keeps Rewind in the tray.
+/// Whether closing the window keeps FileEpoch in the tray.
 #[derive(Default)]
 pub struct TrayState {
     enabled: AtomicBool,
@@ -27,9 +27,9 @@ pub struct TrayState {
 
 fn labels(locale: &str) -> (&'static str, &'static str) {
     match locale {
-        "es" => ("Abrir Rewind", "Salir"),
-        "de" => ("Rewind öffnen", "Beenden"),
-        _ => ("Open Rewind", "Quit"),
+        "es" => ("Abrir FileEpoch", "Salir"),
+        "de" => ("FileEpoch öffnen", "Beenden"),
+        _ => ("Open FileEpoch", "Quit"),
     }
 }
 
@@ -70,7 +70,7 @@ pub fn set_tray(app: &AppHandle, enabled: bool, locale: &str) -> tauri::Result<(
         return tray.set_menu(Some(menu));
     }
     let mut builder = TrayIconBuilder::with_id(TRAY_ID)
-        .tooltip("Rewind")
+        .tooltip("FileEpoch")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
@@ -119,6 +119,19 @@ pub async fn quit_app(app: AppHandle) {
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
     app.exit(0);
+}
+
+/// Earlier versions were called "Rewind": if they were set to start with the system, remove that
+/// entry (it points to the old program) and enable the current one instead.
+pub fn migrate_autostart(app: &AppHandle) {
+    let Ok(exe) = std::env::current_exe() else { return };
+    let Some(exe) = exe.to_str() else { return };
+    let Ok(old) = auto_launch::AutoLaunchBuilder::new().set_app_name("Rewind").set_app_path(exe).build() else {
+        return;
+    };
+    if old.is_enabled().unwrap_or(false) && old.disable().is_ok() {
+        let _ = app.autolaunch().enable();
+    }
 }
 
 #[tauri::command]

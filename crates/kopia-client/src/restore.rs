@@ -7,7 +7,7 @@
 //! * By default nothing is overwritten. Overwriting requires [`ConflictPolicy::Overwrite`] with
 //!   `confirmed: true`, which callers only set after asking the user; without it the restore is
 //!   refused. Existing symbolic links or junctions are never written through.
-//! * Every file is streamed into a temporary `.rewind-*.part` file in the target folder and only
+//! * Every file is streamed into a temporary `.fileepoch-*.part` file in the target folder and only
 //!   renamed onto its final name once the size matches. Modification times are restored
 //!   (folders last, deepest first) and optionally verified.
 //! * Symbolic links are not restored; they are reported.
@@ -658,7 +658,7 @@ async fn remove_placeholder(path: &Path) {
 fn part_path(target: &Path) -> PathBuf {
     static COUNTER: AtomicU64 = AtomicU64::new(0);
     let n = COUNTER.fetch_add(1, Ordering::Relaxed);
-    target.with_file_name(format!(".rewind-{:x}-{n:x}.part", std::process::id()))
+    target.with_file_name(format!(".fileepoch-{:x}-{n:x}.part", std::process::id()))
 }
 
 async fn download(

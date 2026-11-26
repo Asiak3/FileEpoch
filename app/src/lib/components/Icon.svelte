@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  // Simple 20×20 line icons in the spirit of Fluent UI System Icons (drawn for Rewind).
+  // Simple 20×20 line icons in the spirit of Fluent UI System Icons (drawn for FileEpoch).
   const paths: Record<string, string> = {
     "chevron-left": "M12.5 4.5 7 10l5.5 5.5",
     "chevron-right": "M7.5 4.5 13 10l-5.5 5.5",

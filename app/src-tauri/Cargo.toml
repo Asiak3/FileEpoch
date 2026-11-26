@@ -1,6 +1,6 @@
 [package]
-name = "rewind-app"
-description = "Rewind desktop app: Time Machine-style browser for Kopia backups"
+name = "fileepoch-app"
+description = "FileEpoch desktop app: Time Machine-style browser for Kopia backups"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -19,6 +19,8 @@ chrono = { version = "0.4", default-features = false, features = ["std"] }
 zeroize = "1"
 tauri-plugin-dialog = "2"
 tauri-plugin-autostart = "2"
+# Only to remove the start-with-system entry of earlier versions (named "Rewind").
+auto-launch = "0.5"
 tauri-plugin-single-instance = "2"
 tauri-plugin-opener = "2"
 tokio = { version = "1", features = ["sync", "time"] }

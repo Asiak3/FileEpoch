@@ -1295,6 +1295,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "fileepoch-app"
+version = "0.1.0"
+dependencies = [
+ "auto-launch",
+ "base64 0.22.1",
+ "chrono",
+ "image",
+ "kopia-client",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-autostart",
+ "tauri-plugin-dialog",
+ "tauri-plugin-opener",
+ "tauri-plugin-single-instance",
+ "tokio",
+ "zeroize",
+]
+
+[[package]]
+name = "fileepoch-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "kopia-client",
+ "rpassword",
+ "tokio",
+]
+
+[[package]]
 name = "find-msvc-tools"
 version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3533,38 +3566,6 @@ dependencies = [
  "wasm-bindgen-futures",
  "wasm-streams",
  "web-sys",
-]
-
-[[package]]
-name = "rewind-app"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "chrono",
- "image",
- "kopia-client",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-autostart",
- "tauri-plugin-dialog",
- "tauri-plugin-opener",
- "tauri-plugin-single-instance",
- "tokio",
- "zeroize",
-]
-
-[[package]]
-name = "rewind-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "clap",
- "kopia-client",
- "rpassword",
- "tokio",
 ]
 
 [[package]]

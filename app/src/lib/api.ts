@@ -203,7 +203,7 @@ export interface Api {
   thumbnail(oid: string): Promise<string | null>;
   /** Shows or removes the tray icon; `locale` translates its menu. */
   configureTray(enabled: boolean, locale: string): Promise<void>;
-  /** Whether Rewind starts with the operating system (read from the system, not from settings). */
+  /** Whether FileEpoch starts with the operating system (read from the system, not from settings). */
   getAutostart(): Promise<boolean>;
   setAutostart(enabled: boolean): Promise<boolean>;
   /** Cancels restores and quits (after the user confirmed). */

@@ -1,7 +1,7 @@
-//! `rewind-cli`: command-line test tool for the Kopia client library.
+//! `fileepoch-cli`: command-line test tool for the Kopia client library.
 //!
 //! Connection settings can be given as options or as environment variables
-//! (`REWIND_SERVER`, `REWIND_USER`, `REWIND_FINGERPRINT`). The password is never accepted on the
+//! (`FILEEPOCH_SERVER`, `FILEEPOCH_USER`, `FILEEPOCH_FINGERPRINT`). The password is never accepted on the
 //! command line or from the environment: it is read from the system credential store or asked
 //! interactively.
 
@@ -21,18 +21,18 @@ use kopia_client::{
 };
 
 #[derive(Parser)]
-#[command(name = "rewind-cli", version, about = "Read-only command-line client for a Kopia web server")]
+#[command(name = "fileepoch-cli", version, about = "Read-only command-line client for a Kopia web server")]
 struct Cli {
     /// Server address, e.g. https://backup.example:51515
-    #[arg(long, env = "REWIND_SERVER", global = true)]
+    #[arg(long, env = "FILEEPOCH_SERVER", global = true)]
     server: Option<String>,
 
     /// Kopia web UI user (the server's --server-username)
-    #[arg(long, env = "REWIND_USER", global = true)]
+    #[arg(long, env = "FILEEPOCH_USER", global = true)]
     user: Option<String>,
 
     /// SHA-256 fingerprint of the server certificate (see the `fingerprint` command)
-    #[arg(long, env = "REWIND_FINGERPRINT", global = true)]
+    #[arg(long, env = "FILEEPOCH_FINGERPRINT", global = true)]
     fingerprint: Option<String>,
 
     /// After a successful login, save the password in the system credential store
@@ -97,7 +97,7 @@ async fn main() {
     if let Err(e) = run(cli).await {
         eprintln!("error: {e:#}");
         if let Some(Error::CertificateMismatch { .. }) = e.downcast_ref::<Error>() {
-            eprintln!("hint: run `rewind-cli fingerprint` and compare with what the server prints at startup.");
+            eprintln!("hint: run `fileepoch-cli fingerprint` and compare with what the server prints at startup.");
         }
         std::process::exit(1);
     }
@@ -105,7 +105,7 @@ async fn main() {
 
 async fn run(cli: Cli) -> Result<()> {
     let server: ServerAddress =
-        cli.server.as_deref().ok_or_else(|| anyhow!("--server (or REWIND_SERVER) is required"))?.parse()?;
+        cli.server.as_deref().ok_or_else(|| anyhow!("--server (or FILEEPOCH_SERVER) is required"))?.parse()?;
 
     match &cli.command {
         Command::Fingerprint => {
@@ -117,7 +117,7 @@ async fn run(cli: Cli) -> Result<()> {
             return Ok(());
         }
         Command::ForgetPassword => {
-            let user = cli.user.as_deref().ok_or_else(|| anyhow!("--user (or REWIND_USER) is required"))?;
+            let user = cli.user.as_deref().ok_or_else(|| anyhow!("--user (or FILEEPOCH_USER) is required"))?;
             let deleted = credentials::delete(&server, user)?;
             println!("{}", if deleted { "Saved password deleted." } else { "No saved password." });
             return Ok(());
@@ -279,12 +279,12 @@ async fn run(cli: Cli) -> Result<()> {
 
 /// Logs in with the saved password or by asking for it, and prints connection warnings.
 async fn login(cli: &Cli, server: &ServerAddress) -> Result<KopiaClient> {
-    let user = cli.user.as_deref().ok_or_else(|| anyhow!("--user (or REWIND_USER) is required"))?;
+    let user = cli.user.as_deref().ok_or_else(|| anyhow!("--user (or FILEEPOCH_USER) is required"))?;
     let fingerprint: Fingerprint = cli
         .fingerprint
         .as_deref()
         .ok_or_else(|| {
-            anyhow!("--fingerprint (or REWIND_FINGERPRINT) is required; get it with `rewind-cli fingerprint`")
+            anyhow!("--fingerprint (or FILEEPOCH_FINGERPRINT) is required; get it with `fileepoch-cli fingerprint`")
         })?
         .parse()?;
 

@@ -44,7 +44,7 @@
 
   onMount(() => {
     void app.init();
-    // Only Rewind's own context menus: hide the browser's (Back, Refresh, Print…) except in text fields.
+    // Only FileEpoch's own context menus: hide the browser's (Back, Refresh, Print…) except in text fields.
     const suppress = (e: MouseEvent) => {
       const el = e.target instanceof Element ? e.target : null;
       if (!el?.closest("input, textarea, [contenteditable=true]")) e.preventDefault();

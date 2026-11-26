@@ -232,13 +232,13 @@
                 <path d="M512 400v122l84 56" fill="none" stroke="#1450c8" stroke-width="56" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
               <div>
-                <div class="name">Rewind <span>{__APP_VERSION__}</span></div>
+                <div class="name">FileEpoch <span>{__APP_VERSION__}</span></div>
                 <div class="by">{t("app.by")}</div>
               </div>
             </div>
             <p class="text">{t("settings.about.desc")}</p>
             <button class="link" onclick={() => app.api.openProjectPage()} title={t("app.projectPage")}>
-              github.com/Asiak3/Rewind <Icon name="external" size={13} />
+              github.com/Asiak3/FileEpoch <Icon name="external" size={13} />
             </button>
             <p class="text small">{t("settings.about.license")}</p>
           {/if}

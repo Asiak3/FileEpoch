@@ -1,12 +1,12 @@
 [workspace]
 resolver = "3"
-members = ["crates/kopia-client", "crates/rewind-cli", "app/src-tauri"]
+members = ["crates/kopia-client", "crates/fileepoch-cli", "app/src-tauri"]
 # The app needs the built frontend (app/dist); keep plain `cargo build/test` working without it.
-default-members = ["crates/kopia-client", "crates/rewind-cli"]
+default-members = ["crates/kopia-client", "crates/fileepoch-cli"]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
 license = "Apache-2.0"
-repository = "https://github.com/Asiak3/Rewind"
+repository = "https://github.com/Asiak3/FileEpoch"
 rust-version = "1.88"

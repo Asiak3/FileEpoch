@@ -43,14 +43,14 @@ $AllowedPaths = @(
 )
 
 # --- HTTP client with certificate pinning ----------------------------------------------------
-if (-not ('RewindVerify.PinnedClient' -as [type])) {
+if (-not ('FileEpochVerify.PinnedClient' -as [type])) {
     Add-Type -TypeDefinition @'
 using System;
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
 
-namespace RewindVerify {
+namespace FileEpochVerify {
     public static class PinnedClient {
         public static HttpClient Create(string fingerprint, CookieContainer jar) {
             string want = fingerprint.Replace(":", "").Replace(" ", "").Trim().ToLowerInvariant();
@@ -78,7 +78,7 @@ if (($Fingerprint -replace '[:\s]', '') -notmatch '^[0-9a-fA-F]{64}$') {
 }
 
 $jar = [System.Net.CookieContainer]::new()
-$client = [RewindVerify.PinnedClient]::Create($Fingerprint, $jar)
+$client = [FileEpochVerify.PinnedClient]::Create($Fingerprint, $jar)
 $script:CsrfToken = $null
 $script:Problems = [System.Collections.Generic.List[string]]::new()
 

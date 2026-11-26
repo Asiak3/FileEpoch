@@ -168,7 +168,7 @@ impl KopiaClient {
             .no_proxy()
             .connect_timeout(Duration::from_secs(15))
             .read_timeout(Duration::from_secs(120))
-            .user_agent(concat!("Rewind/", env!("CARGO_PKG_VERSION")))
+            .user_agent(concat!("FileEpoch/", env!("CARGO_PKG_VERSION")))
             .build()
             .map_err(|e| Error::Other(format!("HTTP client: {e}")))?;
 

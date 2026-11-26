@@ -181,7 +181,7 @@ Kopia compares `hex(SHA-256(DER certificate))`, lower case, no separators
 same value in upper case with `:`. The app accepts both formats (normalize: strip `:` and spaces,
 lower-case).
 
-Kopia accepts a match on **any** certificate in the presented chain. Rewind deliberately pins only
+Kopia accepts a match on **any** certificate in the presented chain. FileEpoch deliberately pins only
 the **end-entity (leaf)** certificate: without chain validation, "any certificate" would let an
 attacker present their own leaf followed by the (public) pinned certificate. For Kopia's
 self-signed certificates the leaf is the only certificate, so the fingerprint is the same.
@@ -189,7 +189,7 @@ Handshake signatures are still verified, so knowing the public certificate is no
 impersonate the server. Host names are not checked: the pin identifies the server, and generated
 Kopia certificates often name a host other than the address used to connect.
 
-Rewind checks the fingerprint with a TLS handshake **before** asking for the password, so a
+FileEpoch checks the fingerprint with a TLS handshake **before** asking for the password, so a
 password is never typed for, or sent to, an unexpected server.
 
 ---
@@ -242,9 +242,9 @@ Notes:
 - Consequence for the timeline: a group of identical snapshots is shown with the date of the first
   one ("content unchanged since…"). To also show "until…", the app requests `all=1` and groups by
   `rootID` itself (cheap: same list).
-- **Rewind's grouping deliberately differs:** the server groups by `rootID` over the whole list,
+- **FileEpoch's grouping deliberately differs:** the server groups by `rootID` over the whole list,
   so a return to earlier content (A → B → A) collapses into two entries and the timeline would
-  jump back in time. Rewind always requests `all=1` and groups only **consecutive** snapshots with
+  jump back in time. FileEpoch always requests `all=1` and groups only **consecutive** snapshots with
   the same `rootID` (A → B → A gives three points), each showing "unchanged until <last>".
 
 ```json

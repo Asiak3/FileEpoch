@@ -374,7 +374,7 @@ export function mockApi(): Api {
       location.reload();
     },
     async openProjectPage() {
-      window.open("https://github.com/Asiak3/Rewind", "_blank", "noopener");
+      window.open("https://github.com/Asiak3/FileEpoch", "_blank", "noopener");
     },
     async onQuitRequested() {
       return () => {};

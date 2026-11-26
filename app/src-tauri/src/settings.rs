@@ -1,5 +1,5 @@
 //! Non-secret settings, stored as JSON in the app's config folder
-//! (`%APPDATA%\io.github.asiak3.rewind\settings.json` on Windows). Passwords are never stored here.
+//! (`%APPDATA%\io.github.asiak3.fileepoch\settings.json` on Windows). Passwords are never stored here.
 
 use std::path::PathBuf;
 
@@ -75,12 +75,35 @@ impl Default for Settings {
     }
 }
 
+/// Identifier of earlier versions (the app was called "Rewind"): their settings are taken over.
+const LEGACY_IDENTIFIERS: &[&str] = &["io.github.asiak3.rewind"];
+
 fn path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
     Ok(dir.join("settings.json"))
 }
 
+/// Copies the settings of an earlier version the first time, if there are no settings yet.
+fn migrate(app: &tauri::AppHandle) {
+    let Ok(new) = path(app) else { return };
+    if new.exists() {
+        return;
+    }
+    let Some(base) = new.parent().and_then(|d| d.parent()) else { return };
+    for id in LEGACY_IDENTIFIERS {
+        let old = base.join(id).join("settings.json");
+        if old.is_file() {
+            if let Some(dir) = new.parent() {
+                let _ = std::fs::create_dir_all(dir);
+            }
+            let _ = std::fs::copy(&old, &new);
+            return;
+        }
+    }
+}
+
 pub fn load(app: &tauri::AppHandle) -> Settings {
+    migrate(app);
     path(app).ok().and_then(|p| std::fs::read(p).ok()).and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
 }
 

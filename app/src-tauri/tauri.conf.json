@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Rewind",
+  "productName": "FileEpoch",
   "version": "0.1.0",
-  "identifier": "io.github.asiak3.rewind",
+  "identifier": "io.github.asiak3.fileepoch",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://127.0.0.1:1420",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Rewind",
+        "title": "FileEpoch",
         "width": 1200,
         "height": 780,
         "minWidth": 860,
