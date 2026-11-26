@@ -107,6 +107,18 @@
         </label>
       </fieldset>
 
+      <fieldset class="group">
+        <legend class="label"><Icon name="monitor" size={15} /> {t("settings.desktop")}</legend>
+        <label class="check">
+          <input type="checkbox" checked={app.settings.tray} onchange={(e) => app.saveSettings({ tray: e.currentTarget.checked })} />
+          <span>{t("settings.tray")}<small>{t("settings.trayHint")}</small></span>
+        </label>
+        <label class="check">
+          <input type="checkbox" checked={app.autostart} onchange={(e) => app.setAutostart(e.currentTarget.checked)} />
+          <span>{t("settings.autostart")}<small>{t("settings.autostartHint")}</small></span>
+        </label>
+      </fieldset>
+
       <div class="server">
         <Icon name="server" size={16} />
         <div>
@@ -124,6 +136,12 @@
         <button class="item" onclick={() => ((open = false), app.disconnect())}><Icon name="plug" size={16} /> {t("app.disconnect")}</button>
       </div>
       {#if message}<p class="msg" role="status">{message}</p>{/if}
+      <div class="about">
+        <span>Rewind {__APP_VERSION__} · {t("app.by")}</span>
+        <button class="link" onclick={() => app.api.openProjectPage()} title={t("app.projectPage")}>
+          github.com/Asiak3/Rewind <Icon name="external" size={13} />
+        </button>
+      </div>
     </div>
   {/if}
 </div>
@@ -205,7 +223,8 @@
     background: var(--surface);
   }
 
-  fieldset.restore {
+  fieldset.restore,
+  fieldset.group {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -214,7 +233,8 @@
     border: none;
   }
 
-  fieldset.restore legend {
+  fieldset.restore legend,
+  fieldset.group legend {
     margin-bottom: 7px;
     padding: 0;
   }
@@ -309,6 +329,48 @@
 
   .item:hover {
     background: var(--hover);
+  }
+
+  .check small {
+    display: block;
+    margin-top: 2px;
+    color: var(--text-3);
+    font-size: 11.5px;
+  }
+
+  .check:has(small) {
+    align-items: flex-start;
+  }
+
+  .check:has(small) input {
+    margin-top: 2px;
+  }
+
+  .about {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+    color: var(--text-3);
+    font-size: 11.5px;
+  }
+
+  .link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 4px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: var(--accent);
+    font-size: 11.5px;
+  }
+
+  .link:hover {
+    text-decoration: underline;
   }
 
   .msg {

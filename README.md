@@ -84,6 +84,10 @@ Using it:
   date) or keep the original name; the menu shows an example from the current folder. If an item already
   exists, keep both (default), skip it, or overwrite it — overwriting always asks first and lists
   what would be replaced. Optionally verify size and date of every restored file.
+- **Tray and start with Windows** (settings menu, both off by default): closing the window can keep
+  Rewind running next to the clock (click the icon to open it; *Quit* in its menu). Started with
+  Windows and with the tray option on, it starts hidden in the tray. Quitting while a restore runs
+  asks first. The list of versions is reloaded every few minutes while Rewind is open.
 - All times are shown in your local time zone. Languages: English, Spanish, German.
 
 To work on the user interface without a Kopia server, `npm run dev` serves it at
@@ -123,6 +127,10 @@ Times are shown in your local time zone. `download` writes `file (version of <sn
 | `docs/API.md`            | Kopia web API notes: endpoints, authentication, what is forbidden and why |
 | `tools/verify-api.ps1`   | Checks the documented API against a live server (read-only) |
 | `tools/anonymize-samples.py` | Turns recorded responses into anonymized test fixtures |
+
+## Author
+
+Rewind is written by A.C. — https://github.com/Asiak3/Rewind
 
 ## License
 

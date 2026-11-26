@@ -148,6 +148,7 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export function mockApi(): Api {
   const screen = params.get("screen");
+  let autostart = false;
   const settings: Settings = {
     server: screen === "connect" ? "" : "https://backup.example:51515",
     user: screen === "connect" ? "" : "kopia",
@@ -171,6 +172,7 @@ export function mockApi(): Api {
     verify: true,
     lastRestoreDir: "",
     thumbnails: true,
+    tray: false,
   };
   const sourceIndex = Number(params.get("source") ?? "1");
   settings.lastSource = `${sources[sourceIndex].userName}@${sources[sourceIndex].host}:${sources[sourceIndex].path}`;
@@ -359,6 +361,23 @@ export function mockApi(): Api {
       for (let i = jobs.length - 1; i >= 0; i--) if (jobs[i].state !== "running" && jobs[i].state !== "queued") jobs.splice(i, 1);
     },
     async openRestoreFolder() {},
+    async configureTray() {},
+    async getAutostart() {
+      return autostart;
+    },
+    async setAutostart(enabled) {
+      autostart = enabled;
+      return autostart;
+    },
+    async quitApp() {
+      location.reload();
+    },
+    async openProjectPage() {
+      window.open("https://github.com/Asiak3/Rewind", "_blank", "noopener");
+    },
+    async onQuitRequested() {
+      return () => {};
+    },
     async thumbnail(oid) {
       // A made-up "photo" (sky, sun, hills) whose colours depend on the object id.
       await new Promise((r) => setTimeout(r, 150 + Math.random() * 400));

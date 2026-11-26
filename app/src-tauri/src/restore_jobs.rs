@@ -150,6 +150,11 @@ impl RestoreManager {
         Some(job.dto.clone())
     }
 
+    /// Whether a restore is queued or running.
+    pub fn busy(&self) -> bool {
+        self.lock().iter().any(|j| matches!(j.dto.state, "queued" | "running"))
+    }
+
     /// Cancels every queued or running job (used when disconnecting).
     pub fn cancel_all(&self) {
         for job in self.lock().iter_mut() {

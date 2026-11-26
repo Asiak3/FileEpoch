@@ -34,6 +34,8 @@ export const DEFAULT_COLUMNS: ColumnSetting[] = [
   { id: "owner", visible: false, width: 110 },
 ];
 
+/** How often the list of versions is reloaded while Rewind is open. */
+const REFRESH_MS = 5 * 60_000;
 export const MIN_COLUMN = 60;
 export const MAX_COLUMN = 520;
 /** The name column: narrowest width, and widest after resizing. */
@@ -66,6 +68,7 @@ class AppStore {
     verify: true,
     lastRestoreDir: "",
     thumbnails: true,
+    tray: false,
   });
 
   /** Saved column settings merged over the defaults (new columns appear, unknown ones vanish). */
@@ -129,6 +132,10 @@ class AppStore {
 
   private seq = 0;
   private loadTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Starts with the operating system (read from the system). */
+  autostart = $state(false);
+  private trayKey = "";
+  private lastRefresh = 0;
 
   /**
    * Sort keys, computed once per folder: normalized name (accents and case removed) for search,
@@ -193,6 +200,14 @@ class AppStore {
 
     this.settings = await this.api.loadSettings();
     this.applyPreferences();
+    this.autostart = await this.api.getAutostart().catch(() => false);
+    await this.api.onQuitRequested(() => void this.confirmQuit());
+    // New versions appear while Rewind stays open (e.g. in the tray): check every few minutes
+    // and when the window comes back.
+    setInterval(() => void this.refreshSnapshots(), REFRESH_MS);
+    window.addEventListener("focus", () => {
+      if (Date.now() - this.lastRefresh > 60_000) void this.refreshSnapshots();
+    });
     await this.api.onRestoreProgress((job) => this.upsertJob(job));
     this.jobs = (await this.api.listRestores()).reverse();
     const s = this.settings;
@@ -208,6 +223,26 @@ class AppStore {
     document.documentElement.lang = i18n.locale;
     document.documentElement.dataset.theme = this.resolvedTheme;
     void this.api.setWindowTheme(this.settings.theme === "system" ? null : this.settings.theme).catch(() => {});
+    const trayKey = `${this.settings.tray}:${i18n.locale}`;
+    if (trayKey !== this.trayKey) {
+      this.trayKey = trayKey;
+      void this.api.configureTray(this.settings.tray, i18n.locale).catch(() => {});
+    }
+  }
+
+  async setAutostart(enabled: boolean) {
+    try {
+      this.autostart = await this.api.setAutostart(enabled);
+    } catch (e) {
+      this.showToast(toApiError(e).message);
+    }
+  }
+
+  /** Closing or quitting while restores run. */
+  async confirmQuit() {
+    if (this.confirmState) return;
+    const ok = await this.confirm({ title: t("quit.title"), body: t("quit.body"), items: [], yes: t("quit.yes") });
+    if (ok) await this.api.quitApp();
   }
 
   async saveSettings(patch: Partial<Settings>) {
@@ -305,6 +340,31 @@ class AppStore {
       if (q.get("point")) this.pointIndex = Math.min(this.points.length - 1, Number(q.get("point")));
     }
     await this.loadListing();
+  }
+
+  /**
+   * Reloads the versions of the current source. If the newest one was selected, the new newest
+   * is selected; otherwise the selection stays on the same time.
+   */
+  async refreshSnapshots() {
+    const source = this.source;
+    if (this.screen !== "main" || !source || this.snapshotsLoading) return;
+    this.lastRefresh = Date.now();
+    let fresh: Snapshot[];
+    try {
+      fresh = await this.api.listSnapshots(source);
+    } catch {
+      return; // a passing network problem: try again next time
+    }
+    if (this.source !== source) return;
+    const same = fresh.length === this.snapshots.length && fresh.every((s, i) => s.id === this.snapshots[i].id);
+    if (same) return;
+    const wasLatest = this.pointIndex === this.points.length - 1;
+    const time = this.point?.time ?? Date.now();
+    const root = this.point?.snapshot.rootId;
+    this.snapshots = fresh;
+    this.pointIndex = wasLatest ? this.points.length - 1 : indexNearest(this.points, time);
+    if (this.point?.snapshot.rootId !== root) await this.loadListing();
   }
 
   /** Select a point on the timeline. Rapid changes (scrubbing) are coalesced. */

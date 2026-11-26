@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod desktop;
 mod restore_jobs;
 mod settings;
 mod thumbnails;
@@ -10,12 +11,31 @@ use tauri::Manager;
 
 fn main() {
     tauri::Builder::default()
+        // First: a second start (e.g. from the Start menu while in the tray) shows this window.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| desktop::show_main(app)))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec![desktop::AUTOSTART_ARG]),
+        ))
+        .plugin(tauri_plugin_opener::init())
         .manage(commands::AppState::default())
         .manage(thumbnails::Thumbnails::default())
+        .manage(desktop::TrayState::default())
+        .on_window_event(desktop::on_window_event)
         .setup(|app| {
             let manager = restore_jobs::RestoreManager::start(app.handle());
             app.manage(manager);
+            // The window starts hidden (tauri.conf.json): shown now, unless Rewind was started
+            // with the system and lives in the tray.
+            let settings = settings::load(app.handle());
+            let locale =
+                if matches!(settings.language.as_str(), "es" | "de") { settings.language.as_str() } else { "en" };
+            let tray_ok = settings.tray && desktop::set_tray(app.handle(), true, locale).is_ok();
+            let autostarted = std::env::args().any(|a| a == desktop::AUTOSTART_ARG);
+            if !(tray_ok && autostarted) {
+                desktop::show_main(app.handle());
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -36,6 +56,11 @@ fn main() {
             restore_jobs::clear_restores,
             restore_jobs::open_restore_folder,
             thumbnails::thumbnail,
+            desktop::configure_tray,
+            desktop::quit_app,
+            desktop::get_autostart,
+            desktop::set_autostart,
+            desktop::open_project_page,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Rewind");

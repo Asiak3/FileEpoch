@@ -37,6 +37,8 @@ pub struct Settings {
     pub last_restore_dir: String,
     /// Show image thumbnails in the icon views (downloads the images).
     pub thumbnails: bool,
+    /// Keep running in the system tray when the window is closed.
+    pub tray: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,6 +67,7 @@ impl Default for Settings {
             verify: true,
             last_restore_dir: String::new(),
             thumbnails: true,
+            tray: false,
         }
     }
 }

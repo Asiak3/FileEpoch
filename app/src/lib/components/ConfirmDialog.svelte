@@ -29,14 +29,16 @@
     <div class="icon"><Icon name="warning" size={26} /></div>
     <h2 id="confirm-title">{dlg.title}</h2>
     <p id="confirm-body">{dlg.body}</p>
-    <ul>
-      {#each dlg.items.slice(0, 8) as item (item)}
-        <li><code>{item}</code></li>
-      {/each}
-      {#if dlg.items.length > 8}
-        <li class="more">{t("restore.more", { n: dlg.items.length - 8 })}</li>
-      {/if}
-    </ul>
+    {#if dlg.items.length}
+      <ul>
+        {#each dlg.items.slice(0, 8) as item (item)}
+          <li><code>{item}</code></li>
+        {/each}
+        {#if dlg.items.length > 8}
+          <li class="more">{t("restore.more", { n: dlg.items.length - 8 })}</li>
+        {/if}
+      </ul>
+    {/if}
     <div class="buttons">
       <button class="btn" bind:this={cancelButton} onclick={() => dlg.resolve(false)}>{t("common.cancel")}</button>
       <button class="btn danger" onclick={() => dlg.resolve(true)}>{dlg.yes}</button>

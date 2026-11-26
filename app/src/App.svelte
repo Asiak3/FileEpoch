@@ -84,6 +84,7 @@
         </svg>
         <span>Rewind</span>
       </div>
+      <button class="by" onclick={() => app.api.openProjectPage()} title={t("app.projectPage")}>{t("app.by")}</button>
       <div class="divider" aria-hidden="true"></div>
       <SourcePicker />
       <div class="spacer"></div>
@@ -205,6 +206,22 @@
     font-weight: 600;
     font-size: 15px;
     letter-spacing: 0.01em;
+  }
+
+  .by {
+    margin: 3px 0 0 -3px;
+    padding: 2px 5px;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: var(--text-3);
+    font-size: 11.5px;
+    letter-spacing: 0.02em;
+  }
+
+  .by:hover {
+    color: var(--accent);
+    background: var(--hover);
   }
 
   .divider {

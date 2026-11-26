@@ -37,6 +37,8 @@ export interface Settings {
   lastRestoreDir: string;
   /** Image thumbnails in the icon views (the images are downloaded for that). */
   thumbnails: boolean;
+  /** Keep running in the system tray when the window is closed. */
+  tray: boolean;
 }
 
 export interface Source {
@@ -197,6 +199,16 @@ export interface Api {
   openRestoreFolder(id: number): Promise<void>;
   /** Small data URL of an image file, or null when it cannot be shown. */
   thumbnail(oid: string): Promise<string | null>;
+  /** Shows or removes the tray icon; `locale` translates its menu. */
+  configureTray(enabled: boolean, locale: string): Promise<void>;
+  /** Whether Rewind starts with the operating system (read from the system, not from settings). */
+  getAutostart(): Promise<boolean>;
+  setAutostart(enabled: boolean): Promise<boolean>;
+  /** Cancels restores and quits (after the user confirmed). */
+  quitApp(): Promise<void>;
+  openProjectPage(): Promise<void>;
+  /** Closing/quitting while restores run: the UI asks first. */
+  onQuitRequested(callback: () => void): Promise<() => void>;
   /** Subscribes to job updates; returns an unsubscribe function. */
   onRestoreProgress(callback: (job: RestoreJob) => void): Promise<() => void>;
 }
@@ -237,6 +249,12 @@ async function tauriApi(): Promise<Api> {
     clearRestores: () => invoke("clear_restores"),
     openRestoreFolder: (id) => invoke("open_restore_folder", { id }),
     thumbnail: (oid) => invoke("thumbnail", { oid }),
+    configureTray: (enabled, locale) => invoke("configure_tray", { enabled, locale }),
+    getAutostart: () => invoke("get_autostart"),
+    setAutostart: (enabled) => invoke("set_autostart", { enabled }),
+    quitApp: () => invoke("quit_app"),
+    openProjectPage: () => invoke("open_project_page"),
+    onQuitRequested: (callback) => listen("quit-requested", () => callback()),
     onRestoreProgress: (callback) => listen<RestoreJob>("restore-progress", (e) => callback(e.payload)),
   };
 }
