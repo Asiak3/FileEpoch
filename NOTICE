@@ -1,0 +1,10 @@
+FileEpoch
+Copyright 2026 A.C.
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+FileEpoch is not affiliated with or endorsed by the Kopia project. "Kopia" is used only to
+describe compatibility.
+
+FileEpoch includes third-party open-source components (Rust crates and npm packages) under their
+own licenses (mostly MIT and Apache-2.0); see Cargo.lock and app/package-lock.json for the list.

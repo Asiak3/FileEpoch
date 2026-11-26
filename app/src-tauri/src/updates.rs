@@ -37,7 +37,10 @@ struct UpdateProgress {
 
 /// Returns the newer version, or `None` when FileEpoch is up to date.
 #[tauri::command]
-pub async fn check_update(app: AppHandle, pending: tauri::State<'_, PendingUpdate>) -> Result<Option<UpdateInfo>, CmdError> {
+pub async fn check_update(
+    app: AppHandle,
+    pending: tauri::State<'_, PendingUpdate>,
+) -> Result<Option<UpdateInfo>, CmdError> {
     let updater = app.updater().map_err(|e| CmdError::new("update_check", e.to_string()))?;
     let update = updater.check().await.map_err(|e| CmdError::new("update_check", e.to_string()))?;
     let info = update.as_ref().map(|u| UpdateInfo {
@@ -76,7 +79,8 @@ pub async fn install_update(app: AppHandle, pending: tauri::State<'_, PendingUpd
 /// Opens the release notes of `version` on GitHub.
 #[tauri::command]
 pub fn open_release_page(app: AppHandle, version: String) -> Result<(), CmdError> {
-    let valid = !version.is_empty() && version.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '+'));
+    let valid =
+        !version.is_empty() && version.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '+'));
     if !valid {
         return Err(CmdError::other("invalid version"));
     }

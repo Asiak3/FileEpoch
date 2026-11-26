@@ -33,7 +33,7 @@ Placeholder values used in this document (not real data): `https://kopia.example
 | Download a file (incl. Range)     | `GET /api/v1/objects/{oid}` (file OID)                 | **no** | Source, Live |
 | Download a folder                 | *no endpoint*: recursive walk + one download per file  | —      | Source |
 
-"Live" = checked on 2026-11-25 against Kopia 0.23.1 (`--readonly`, filesystem storage, three
+"Live" = checked on 2026-11-25 against Kopia 0.23.1 (read-only repository connection, filesystem storage, three
 sources, up to 12 snapshots per source) with [`tools/verify-api.ps1`](../tools/verify-api.ps1).
 All checks in §8 passed. See §8.1 for what the live run added.
 
@@ -48,7 +48,7 @@ GET  /api/v1/objects/{oid}      {oid} must match ^(I+|Z)?[g-z]?[0-9a-f]{2,64}$
 ```
 
 Any other method/path combination must be rejected inside the client, before anything goes out on
-the network. See §7 for why: `--readonly` does **not** make the other endpoints safe.
+the network. See §7 for why: a read-only repository does **not** make the other endpoints safe.
 
 The only network access of the app that is *not* to the Kopia server is the update check
 (`app/src-tauri/src/updates.rs`, Tauri updater plugin): `GET` of
@@ -385,14 +385,16 @@ client **cannot** recompute a comparable hash. Possible checks: size (`size`) an
 
 ---
 
-## 7. Forbidden endpoints, and why `--readonly` is not enough
+## 7. Forbidden endpoints, and why a read-only repository is not enough
 
-`kopia server start --readonly` opens the repository with its storage wrapped in a `readonly`
-wrapper (`repo/open.go`): this **prevents writing repository blobs**, but the server still registers
+A read-only repository connection (`kopia repository connect … --readonly` or
+`kopia repository set-client --read-only`, stored in the config file the server uses; there is no
+`--readonly` option on `kopia server start`) makes `repo/open.go` wrap the storage in a `readonly`
+wrapper: this **prevents writing repository blobs**, but the server still registers
 every route, and several of them act on the **server host** or on server state rather than on the
 repository:
 
-| Route                                                         | Effect even with `--readonly`                          |
+| Route                                                         | Effect even when read-only                             |
 |---------------------------------------------------------------|--------------------------------------------------------|
 | `POST /api/v1/restore`                                        | Creates files/zip/tar on the server's disk             |
 | `POST /api/v1/mounts`, `DELETE /api/v1/mounts/{id}`           | Mounts/unmounts snapshots on the server                |

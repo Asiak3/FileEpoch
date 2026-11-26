@@ -158,7 +158,7 @@ const en: Dict = {
   "theme.dark": "Dark",
   "lang.auto": "System language",
   "banner.notReadonly":
-    "This server can modify the repository (it was not started with --readonly). FileEpoch only reads, but check that this is not your administration server.",
+    "This server can modify the repository (its repository is not connected read-only, see docs/SERVER.md). FileEpoch only reads, but check that this is not your administration server.",
   "banner.untested": "Kopia {version} has not been tested with FileEpoch (tested: {tested}). Some things may not work.",
   "timeline.label": "Version",
   "timeline.prev": "Earlier version",
@@ -364,7 +364,7 @@ const es: Dict = {
   "theme.dark": "Oscuro",
   "lang.auto": "Idioma del sistema",
   "banner.notReadonly":
-    "Este servidor puede modificar el repositorio (no se inició con --readonly). FileEpoch solo lee, pero comprueba que no sea tu servidor de administración.",
+    "Este servidor puede modificar el repositorio (su repositorio no está conectado en solo lectura, ver docs/SERVER.md). FileEpoch solo lee, pero comprueba que no sea tu servidor de administración.",
   "banner.untested": "Kopia {version} no se ha probado con FileEpoch (probadas: {tested}). Puede que algo no funcione.",
   "timeline.label": "Versión",
   "timeline.prev": "Versión anterior",
@@ -571,7 +571,7 @@ const de: Dict = {
   "theme.dark": "Dunkel",
   "lang.auto": "Systemsprache",
   "banner.notReadonly":
-    "Dieser Server kann das Repository verändern (er wurde nicht mit --readonly gestartet). FileEpoch liest nur, aber prüfe, ob das nicht dein Administrationsserver ist.",
+    "Dieser Server kann das Repository verändern (sein Repository ist nicht schreibgeschützt verbunden, siehe docs/SERVER.md). FileEpoch liest nur, aber prüfe, ob das nicht dein Administrationsserver ist.",
   "banner.untested":
     "Kopia {version} wurde nicht mit FileEpoch getestet (getestet: {tested}). Manches funktioniert vielleicht nicht.",
   "timeline.label": "Version",

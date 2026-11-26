@@ -1,13 +1,28 @@
 # FileEpoch
 
 A Time Machine–style viewer and restore tool for [Kopia](https://kopia.io) backups.
-FileEpoch connects to a Kopia web server (ideally one started with `--readonly`), lets you move
-through snapshots on a timeline, browse files as they were, and restore them **to your own
-computer**.
+FileEpoch connects to a Kopia web server (ideally one with a read-only repository connection, see
+[docs/SERVER.md](docs/SERVER.md)), lets you move through snapshots on a timeline, browse files as
+they were, and restore them **to your own computer**.
 
-> **Status: early development.** Browsing and restoring work against Kopia 0.23.1: connect,
-> pick a source, move along the timeline, explore folders and restore files, folders or a whole
-> snapshot to your computer. Packaging (installer) comes next.
+> **Status: beta (0.x).** Tested against Kopia 0.23.1 on Windows. Linux and macOS builds are
+> produced but have had little testing yet; reports are welcome.
+
+## Installing
+
+Download the installer for your system from the
+[latest release](https://github.com/Asiak3/FileEpoch/releases/latest):
+
+| System  | File | Notes |
+|---------|------|-------|
+| Windows 10/11 | `FileEpoch_<version>_x64-setup.exe` | Installs for the current user, no administrator rights. Not code-signed yet: Windows SmartScreen may warn ("More info" → "Run anyway"). |
+| Linux   | `.AppImage` (any distribution) or `.deb` (Debian, Ubuntu) | Needs WebKitGTK 4.1 (preinstalled on current desktops). |
+| macOS   | `.dmg` | Not signed by Apple yet: open it with right-click → Open, or System Settings → Privacy & Security → "Open anyway". |
+
+FileEpoch then keeps itself up to date (see *Updates* below). Uninstalling on Windows offers to
+delete the settings and the saved password as well.
+
+Then set up the server side as described in [docs/SERVER.md](docs/SERVER.md).
 
 ## Safety by design
 
@@ -31,7 +46,7 @@ computer**.
 Other versions trigger a warning. See [docs/API.md](docs/API.md) for the (undocumented) Kopia web
 API and how it was verified.
 
-## Building
+## Building from source
 
 Requirements: Rust 1.88 or newer. On Windows, the Visual Studio C++ Build Tools.
 
@@ -130,11 +145,19 @@ Times are shown in your local time zone. `download` writes `file (version of <sn
 | Path                     | Contents |
 |--------------------------|----------|
 | `crates/kopia-client`    | Read-only Kopia API client library (TLS pinning, session/CSRF handling, restore) |
-| `crates/fileepoch-cli`      | Command-line test tool |
+| `crates/fileepoch-cli`   | Command-line test tool |
 | `app/`                   | Desktop app: Svelte 5 user interface (`src/`) and Tauri 2 backend (`src-tauri/`) |
 | `docs/API.md`            | Kopia web API notes: endpoints, authentication, what is forbidden and why |
+| `docs/SERVER.md`         | How to run a read-only Kopia server for FileEpoch |
 | `tools/verify-api.ps1`   | Checks the documented API against a live server (read-only) |
 | `tools/anonymize-samples.py` | Turns recorded responses into anonymized test fixtures |
+| `tools/set-version.mjs`  | Sets or checks the version in all files |
+| `.github/workflows/`     | CI (every push) and release builds (version tags) |
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) for reporting vulnerabilities,
+and [CHANGELOG.md](CHANGELOG.md).
 
 ## Author
 
