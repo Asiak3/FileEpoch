@@ -34,7 +34,7 @@ pub struct RestoreRequest {
     dest: String,
     naming: String,
     suffix_date: String,
-    /// Translated word for the suffix, e.g. "restaurado".
+    /// Translated words before the date in the suffix, e.g. "versión del" or "modificado".
     label: String,
     conflict: String,
     /// Must be true for `conflict == "overwrite"`; set only after the user confirmed.

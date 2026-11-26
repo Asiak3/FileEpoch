@@ -426,7 +426,7 @@ fn opts(naming: Naming, conflict: ConflictPolicy) -> RestoreOptions {
 
 fn suffix() -> Naming {
     Naming::Suffix {
-        label: "restored".into(),
+        label: "version of".into(),
         date: SuffixDate::Snapshot(Local.with_ymd_and_hms(2026, 11, 25, 19, 0, 0).unwrap()),
     }
 }
@@ -475,7 +475,7 @@ async fn restores_a_folder_tree_safely() {
 
     let s = run(&client, &[docs], out.path(), &opts(suffix(), ConflictPolicy::Rename)).await.unwrap();
 
-    let top = "docs (restored 2026-11-25 19-00)";
+    let top = "docs (version of 2026-11-25 19h00)";
     assert_eq!(s.top_level, vec![out.path().join(top)]);
     let files = tree(out.path());
     assert!(files.iter().all(|f| f.starts_with(top)), "everything stays inside the restored folder: {files:?}");
@@ -622,7 +622,7 @@ async fn restores_a_whole_snapshot_and_single_files() {
     let file = client.find_entry(&"k8001".parse().unwrap(), "docs/a.txt").await.unwrap();
     let s = run(&client, &[file.clone(), file], out.path(), &opts(suffix(), ConflictPolicy::Rename)).await.unwrap();
     let names: Vec<_> = s.top_level.iter().map(|p| p.file_name().unwrap().to_string_lossy().into_owned()).collect();
-    assert_eq!(names, vec!["a (restored 2026-11-25 19-00).txt", "a (restored 2026-11-25 19-00) (2).txt"]);
+    assert_eq!(names, vec!["a (version of 2026-11-25 19h00).txt", "a (version of 2026-11-25 19h00) (2).txt"]);
 }
 
 #[tokio::test]

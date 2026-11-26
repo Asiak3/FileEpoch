@@ -467,7 +467,7 @@ class AppStore {
         dest,
         naming: s.restoreNaming,
         suffixDate: s.suffixDate,
-        label: t("restore.word"),
+        label: t(s.suffixDate === "modified" ? "restore.word.modified" : "restore.word.snapshot"),
         conflict: s.conflict,
         overwriteConfirmed: false,
         verify: s.verify,

@@ -83,7 +83,7 @@ enum Command {
         /// Local folder to write into
         #[arg(long)]
         out: PathBuf,
-        /// Keep the original name instead of adding "(restored <snapshot time>)"
+        /// Keep the original name instead of adding "(version of <snapshot time>)"
         #[arg(long)]
         keep_name: bool,
     },
@@ -225,7 +225,7 @@ async fn run(cli: Cli) -> Result<()> {
                 Naming::Original
             } else {
                 Naming::Suffix {
-                    label: "restored".into(),
+                    label: "version of".into(),
                     date: SuffixDate::Snapshot(snap.start_time.with_timezone(&Local)),
                 }
             };

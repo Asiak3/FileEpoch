@@ -21,6 +21,31 @@
     { value: "en", label: "English" },
   ];
 
+  type NamingChoice = "snapshot" | "modified" | "original";
+  let naming = $derived<NamingChoice>(app.settings.restoreNaming === "original" ? "original" : app.settings.suffixDate);
+
+  function setNaming(v: NamingChoice) {
+    void app.saveSettings(v === "original" ? { restoreNaming: "original" } : { restoreNaming: "suffix", suffixDate: v });
+  }
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+  /** Same format as the restore engine: 2026-11-25 03h02 (local time). */
+  function stamp(ms: number): string {
+    const d = new Date(ms);
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}h${pad(d.getMinutes())}`;
+  }
+
+  /** What a file of the current folder would be called, so the choice is concrete. */
+  let example = $derived.by(() => {
+    const file = app.visible.find((e) => e.kind === "f" && e.mtime && /.\.[^.]+$/.test(e.name));
+    const name = file?.name ?? "report.pdf";
+    if (naming === "original") return name;
+    const time = naming === "modified" ? (file?.mtime ?? Date.now()) : app.point ? Date.parse(app.point.snapshot.startTime) : Date.now();
+    const dot = name.lastIndexOf(".");
+    const word = t(naming === "modified" ? "restore.word.modified" : "restore.word.snapshot");
+    return `${name.slice(0, dot)} (${word} ${stamp(time)})${name.slice(dot)}`;
+  });
+
   async function forget() {
     const had = await app.forgetPassword().catch(() => false);
     message = had ? t("app.forgotten") : "";
@@ -54,22 +79,15 @@
 
       <fieldset class="restore">
         <legend class="label"><Icon name="restore" size={15} /> {t("settings.restore")}</legend>
-        <label class="row">
+        <label class="row stack">
           <span>{t("settings.naming")}</span>
-          <select value={app.settings.restoreNaming} onchange={(e) => app.saveSettings({ restoreNaming: e.currentTarget.value as Settings["restoreNaming"] })}>
-            <option value="suffix">{t("settings.naming.suffix")}</option>
+          <select value={naming} onchange={(e) => setNaming(e.currentTarget.value as NamingChoice)}>
+            <option value="snapshot">{t("settings.naming.snapshot")}</option>
+            <option value="modified">{t("settings.naming.modified")}</option>
             <option value="original">{t("settings.naming.original")}</option>
           </select>
         </label>
-        {#if app.settings.restoreNaming === "suffix"}
-          <label class="row">
-            <span>{t("settings.suffixDate")}</span>
-            <select value={app.settings.suffixDate} onchange={(e) => app.saveSettings({ suffixDate: e.currentTarget.value as Settings["suffixDate"] })}>
-              <option value="snapshot">{t("settings.suffixDate.snapshot")}</option>
-              <option value="modified">{t("settings.suffixDate.modified")}</option>
-            </select>
-          </label>
-        {/if}
+        <p class="example" title={example}>{t("settings.naming.example", { name: example })}</p>
         <label class="row">
           <span>{t("settings.conflict")}</span>
           <select value={app.settings.conflict} onchange={(e) => app.saveSettings({ conflict: e.currentTarget.value as Settings["conflict"] })}>
@@ -205,9 +223,23 @@
     color: var(--text-2);
   }
 
+  .row.stack {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
   .row select {
     min-width: 0;
     font-size: 12.5px;
+  }
+
+  .example {
+    margin: -2px 0 2px;
+    font-size: 11.5px;
+    color: var(--text-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .check {

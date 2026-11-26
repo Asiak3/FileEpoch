@@ -75,8 +75,9 @@ Using it:
   same). Rewind asks for the destination folder every time. Restores run one after another in the
   background; the *Restores* panel shows progress, lets you cancel, and summarizes renamed items,
   skipped links and errors.
-- **Restore options** (settings menu): name restored items with "(restored <date>)" or keep the
-  original name; the date is the snapshot time or the file's modification date; if an item already
+- **Restore options** (settings menu): name restored items `report (version of 2026-11-25 03h02).pdf`
+  (date of the snapshot), `report (modified 2026-11-24 16h46).pdf` (the file's own modification
+  date) or keep the original name; the menu shows an example from the current folder. If an item already
   exists, keep both (default), skip it, or overwrite it — overwriting always asks first and lists
   what would be replaced. Optionally verify size and date of every restored file.
 - All times are shown in your local time zone. Languages: English, Spanish, German.
@@ -105,7 +106,7 @@ rewind-cli ... download --source docs --path some/folder --out .   # a whole fol
 rewind-cli ... forget-password
 ```
 
-Times are shown in your local time zone. `download` writes `file (restored <snapshot time>).pdf`
+Times are shown in your local time zone. `download` writes `file (version of <snapshot time>).pdf`
 (or `--keep-name`), never overwrites, verifies sizes and restores modification times.
 
 ## Repository layout

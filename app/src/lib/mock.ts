@@ -210,7 +210,7 @@ export function mockApi(): Api {
         job.state = "done";
         job.current = "";
         job.summary = {
-          topLevel: [`${job.dest}\\${job.items[0]} (restaurado 2026-11-25 19-00)`],
+          topLevel: [`${job.dest}\\${job.items[0]} (versión del 2026-11-25 19h00)`],
           filesRestored: totalFiles - 1,
           bytesRestored: totalBytes - 1000,
           dirsCreated: 12,

@@ -33,7 +33,7 @@ const MTIME_TOLERANCE: Duration = Duration::from_secs(2);
 /// Whether names that differ only in case collide on this platform.
 const CASE_INSENSITIVE: bool = cfg!(any(windows, target_os = "macos"));
 
-/// Which date goes into the "(restored …)" suffix.
+/// Which date goes into the "(version of …)" suffix.
 #[derive(Debug, Clone)]
 pub enum SuffixDate {
     /// The snapshot's start time (local time).
@@ -45,7 +45,8 @@ pub enum SuffixDate {
 /// How to name the restored top-level items.
 #[derive(Debug, Clone)]
 pub enum Naming {
-    /// `name (<label> YYYY-MM-DD HH-mm).ext`. `label` is user-interface text, already translated.
+    /// `name (<label> YYYY-MM-DD HHhmm).ext`. `label` is user-interface text, already translated and
+    /// matching the date (e.g. "version of" for the snapshot time, "modified" for the file date).
     Suffix { label: String, date: SuffixDate },
     /// Keep the original name.
     Original,
@@ -207,7 +208,7 @@ pub fn restored_name(name: &str, is_dir: bool, mtime: Option<DateTime<Utc>>, nam
                 SuffixDate::Modified { fallback } => mtime.map(|m| m.with_timezone(&Local)).unwrap_or(*fallback),
             };
             let (stem, ext) = split_for(name, is_dir);
-            compose(stem, &format!(" ({label} {})", t.format("%Y-%m-%d %H-%M")), ext)
+            compose(stem, &format!(" ({label} {})", t.format("%Y-%m-%d %Hh%M")), ext)
         }
     }
 }
@@ -819,21 +820,21 @@ mod tests {
     #[test]
     fn builds_restored_names() {
         let time = Local.with_ymd_and_hms(2026, 11, 25, 19, 0, 0).unwrap();
-        let naming = Naming::Suffix { label: "restored".into(), date: SuffixDate::Snapshot(time) };
-        assert_eq!(restored_name("report.pdf", false, None, &naming), "report (restored 2026-11-25 19-00).pdf");
-        assert_eq!(restored_name("archive.tar.gz", false, None, &naming), "archive.tar (restored 2026-11-25 19-00).gz");
-        assert_eq!(restored_name(".bashrc", false, None, &naming), ".bashrc (restored 2026-11-25 19-00)");
-        assert_eq!(restored_name("v1.2", true, None, &naming), "v1.2 (restored 2026-11-25 19-00)");
+        let naming = Naming::Suffix { label: "version of".into(), date: SuffixDate::Snapshot(time) };
+        assert_eq!(restored_name("report.pdf", false, None, &naming), "report (version of 2026-11-25 19h00).pdf");
+        assert_eq!(restored_name("archive.tar.gz", false, None, &naming), "archive.tar (version of 2026-11-25 19h00).gz");
+        assert_eq!(restored_name(".bashrc", false, None, &naming), ".bashrc (version of 2026-11-25 19h00)");
+        assert_eq!(restored_name("v1.2", true, None, &naming), "v1.2 (version of 2026-11-25 19h00)");
         assert_eq!(restored_name("x.pdf", false, None, &Naming::Original), "x.pdf");
 
         let mtime = Local.with_ymd_and_hms(2025, 3, 4, 5, 6, 0).unwrap().with_timezone(&Utc);
-        let by_file = Naming::Suffix { label: "restored".into(), date: SuffixDate::Modified { fallback: time } };
-        assert_eq!(restored_name("a.txt", false, Some(mtime), &by_file), "a (restored 2025-03-04 05-06).txt");
-        assert_eq!(restored_name("a.txt", false, None, &by_file), "a (restored 2026-11-25 19-00).txt");
+        let by_file = Naming::Suffix { label: "modified".into(), date: SuffixDate::Modified { fallback: time } };
+        assert_eq!(restored_name("a.txt", false, Some(mtime), &by_file), "a (modified 2025-03-04 05h06).txt");
+        assert_eq!(restored_name("a.txt", false, None, &by_file), "a (modified 2026-11-25 19h00).txt");
 
         let long = format!("{}.pdf", "x".repeat(250));
         let n = restored_name(&long, false, None, &naming);
-        assert!(n.len() <= 255 && n.ends_with(" (restored 2026-11-25 19-00).pdf"), "{n}");
+        assert!(n.len() <= 255 && n.ends_with(" (version of 2026-11-25 19h00).pdf"), "{n}");
         assert!(with_counter(&long, false, 12).len() <= 255);
     }
 

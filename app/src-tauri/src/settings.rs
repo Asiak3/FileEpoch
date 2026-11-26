@@ -25,7 +25,7 @@ pub struct Settings {
     pub view_mode: String,
     /// Optional columns of the details view, in display order (empty: defaults).
     pub columns: Vec<ColumnSetting>,
-    /// Restore: `suffix` (add "(restored date)") or `original`.
+    /// Restore: `suffix` (add "(version of <date>)") or `original`.
     pub restore_naming: String,
     /// Restore: date in the suffix, `snapshot` or `modified`.
     pub suffix_date: String,
