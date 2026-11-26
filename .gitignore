@@ -28,3 +28,4 @@ __pycache__/
 .sync_*.db*
 .owncloudsync.log
 Desktop.ini
+.sync-exclude.lst
