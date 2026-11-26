@@ -12,6 +12,7 @@ use kopia_client::{
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroizing;
 
+use crate::restore_jobs::RestoreManager;
 use crate::settings::{self, Settings};
 
 #[derive(Default)]
@@ -20,7 +21,7 @@ pub struct AppState {
 }
 
 impl AppState {
-    fn client(&self) -> Result<Arc<KopiaClient>, CmdError> {
+    pub(crate) fn client(&self) -> Result<Arc<KopiaClient>, CmdError> {
         self.client
             .lock()
             .unwrap_or_else(|e| e.into_inner())
@@ -44,8 +45,12 @@ pub struct CmdError {
 }
 
 impl CmdError {
-    fn new(code: &'static str, message: impl Into<String>) -> Self {
+    pub(crate) fn new(code: &'static str, message: impl Into<String>) -> Self {
         CmdError { code, message: message.into(), presented: None }
+    }
+
+    pub(crate) fn other(message: impl Into<String>) -> Self {
+        Self::new("other", message)
     }
 }
 
@@ -122,7 +127,11 @@ pub struct ConnectResult {
 }
 
 #[tauri::command]
-pub async fn connect(state: tauri::State<'_, AppState>, request: ConnectRequest) -> CmdResult<ConnectResult> {
+pub async fn connect(
+    state: tauri::State<'_, AppState>,
+    restores: tauri::State<'_, RestoreManager>,
+    request: ConnectRequest,
+) -> CmdResult<ConnectResult> {
     let ConnectRequest { server, user, fingerprint, password, remember } = request;
     let password = password.map(Zeroizing::new);
     let server: ServerAddress = server.parse()?;
@@ -130,6 +139,7 @@ pub async fn connect(state: tauri::State<'_, AppState>, request: ConnectRequest)
     state.set(None);
 
     // Check the certificate before any credential is used.
+    restores.cancel_all();
     let presented = kopia_client::probe_certificate(&server).await?;
     if presented != fingerprint {
         return Err(Error::CertificateMismatch { presented: presented.to_hex() }.into());
@@ -166,7 +176,8 @@ pub async fn connect(state: tauri::State<'_, AppState>, request: ConnectRequest)
 }
 
 #[tauri::command]
-pub fn disconnect(state: tauri::State<'_, AppState>) {
+pub fn disconnect(state: tauri::State<'_, AppState>, restores: tauri::State<'_, RestoreManager>) {
+    restores.cancel_all();
     state.set(None);
 }
 
@@ -181,9 +192,9 @@ pub fn forget_password(server: String, user: String) -> CmdResult<bool> {
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SourceDto {
-    host: String,
-    user_name: String,
-    path: String,
+    pub(crate) host: String,
+    pub(crate) user_name: String,
+    pub(crate) path: String,
 }
 
 impl From<SourceInfo> for SourceDto {

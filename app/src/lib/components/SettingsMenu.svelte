@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Language, Theme } from "../api";
+  import type { Language, Settings, Theme } from "../api";
   import { app } from "../store.svelte";
   import { t } from "../i18n.svelte";
   import { dismissable } from "../popover";
@@ -52,6 +52,38 @@
         </select>
       </div>
 
+      <fieldset class="restore">
+        <legend class="label"><Icon name="restore" size={15} /> {t("settings.restore")}</legend>
+        <label class="row">
+          <span>{t("settings.naming")}</span>
+          <select value={app.settings.restoreNaming} onchange={(e) => app.saveSettings({ restoreNaming: e.currentTarget.value as Settings["restoreNaming"] })}>
+            <option value="suffix">{t("settings.naming.suffix")}</option>
+            <option value="original">{t("settings.naming.original")}</option>
+          </select>
+        </label>
+        {#if app.settings.restoreNaming === "suffix"}
+          <label class="row">
+            <span>{t("settings.suffixDate")}</span>
+            <select value={app.settings.suffixDate} onchange={(e) => app.saveSettings({ suffixDate: e.currentTarget.value as Settings["suffixDate"] })}>
+              <option value="snapshot">{t("settings.suffixDate.snapshot")}</option>
+              <option value="modified">{t("settings.suffixDate.modified")}</option>
+            </select>
+          </label>
+        {/if}
+        <label class="row">
+          <span>{t("settings.conflict")}</span>
+          <select value={app.settings.conflict} onchange={(e) => app.saveSettings({ conflict: e.currentTarget.value as Settings["conflict"] })}>
+            <option value="rename">{t("settings.conflict.rename")}</option>
+            <option value="skip">{t("settings.conflict.skip")}</option>
+            <option value="overwrite">{t("settings.conflict.overwrite")}</option>
+          </select>
+        </label>
+        <label class="check">
+          <input type="checkbox" checked={app.settings.verify} onchange={(e) => app.saveSettings({ verify: e.currentTarget.checked })} />
+          <span>{t("settings.verify")}</span>
+        </label>
+      </fieldset>
+
       <div class="server">
         <Icon name="server" size={16} />
         <div>
@@ -83,7 +115,9 @@
     top: calc(100% + 6px);
     right: 0;
     z-index: 20;
-    width: 330px;
+    width: 380px;
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
     padding: 14px;
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -146,6 +180,46 @@
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-sm);
     background: var(--surface);
+  }
+
+  fieldset.restore {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    border: none;
+  }
+
+  fieldset.restore legend {
+    margin-bottom: 7px;
+    padding: 0;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 1fr 1.15fr;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    color: var(--text-2);
+  }
+
+  .row select {
+    min-width: 0;
+    font-size: 12.5px;
+  }
+
+  .check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    color: var(--text-2);
+  }
+
+  .check input {
+    accent-color: var(--accent);
   }
 
   .server {

@@ -4,7 +4,7 @@
 // URL parameters: ?screen=connect  ?lang=es|de|en  ?theme=light|dark  ?source=<n>  ?path=a/b
 //                 ?mismatch=1  ?readonly=0  ?version=0.99.0
 
-import type { Api, Entry, Listing, Settings, Snapshot, Source } from "./api";
+import type { Api, Entry, Listing, RestoreJob, Settings, Snapshot, Source } from "./api";
 
 const params = new URLSearchParams(location.search);
 const FP_HEX = "3f9a0c5e7b21d4486a0e9f13c2b75d8e41a6f0c97e2b5d3184c6a9e07f1b2d4c";
@@ -174,6 +174,90 @@ export function mockApi(): Api {
   const sourceIndex = Number(params.get("source") ?? "1");
   settings.lastSource = `${sources[sourceIndex].userName}@${sources[sourceIndex].host}:${sources[sourceIndex].path}`;
   let savedPassword = screen === "connect" ? null : "demo";
+  const listeners: ((job: RestoreJob) => void)[] = [];
+  const jobs: RestoreJob[] = [];
+  let nextJob = 1;
+  const emit = (job: RestoreJob) => listeners.forEach((l) => l({ ...job }));
+
+  // ?jobs=1 starts with a finished and a running restore (for screenshots).
+  const simulate = (job: RestoreJob, totalFiles: number, totalBytes: number, failAt = -1) => {
+    const steps = 40;
+    let step = 0;
+    job.state = "running";
+    const timer = setInterval(() => {
+      if ((job.state as string) === "cancelled") {
+        clearInterval(timer);
+        return;
+      }
+      step++;
+      if (step < 6) {
+        job.phase = "scanning";
+        job.dirsScanned = step * 7;
+      } else {
+        job.phase = "downloading";
+        job.filesTotal = totalFiles;
+        job.bytesTotal = totalBytes;
+        job.filesDone = Math.min(totalFiles, Math.round(((step - 6) / (steps - 6)) * totalFiles));
+        job.bytesDone = Math.min(totalBytes, Math.round(((step - 6) / (steps - 6)) * totalBytes));
+        job.current = `${job.items[0]}/IMG_${String(step * 13).padStart(4, "0")}.jpg`;
+      }
+      if (step === failAt) {
+        clearInterval(timer);
+        job.state = "failed";
+        job.error = "destination folder is not writable";
+      } else if (step >= steps) {
+        clearInterval(timer);
+        job.state = "done";
+        job.current = "";
+        job.summary = {
+          topLevel: [`${job.dest}\\${job.items[0]} (restaurado 2026-11-25 19-00)`],
+          filesRestored: totalFiles - 1,
+          bytesRestored: totalBytes - 1000,
+          dirsCreated: 12,
+          renamed: [[`${job.items[0]}/notas:2025.txt`, `${job.dest}\\notas_2025.txt`]],
+          renamedCount: 1,
+          skippedLinks: [`${job.items[0]}/actual`],
+          skippedLinksCount: 1,
+          skippedExisting: [],
+          skippedExistingCount: 0,
+          errors: [[`${job.items[0]}/roto.bin`, "size mismatch: expected 1000 bytes, got 10"]],
+          errorsCount: 1,
+        };
+      }
+      emit(job);
+    }, 250);
+  };
+
+  const newJob = (items: string[], dest: string, snapshotTime: string, sourcePath: string): RestoreJob => {
+    const job: RestoreJob = {
+      id: nextJob++,
+      state: "queued",
+      phase: "scanning",
+      sourcePath,
+      snapshotTime,
+      items: items.slice(0, 5),
+      itemCount: items.length,
+      dest,
+      dirsScanned: 0,
+      filesTotal: 0,
+      filesDone: 0,
+      bytesTotal: 0,
+      bytesDone: 0,
+      current: "",
+      summary: null,
+      error: null,
+    };
+    jobs.push(job);
+    return job;
+  };
+
+  if (params.get("jobs") === "1") {
+    const t = snapshotCache[1].at(-1)!.startTime;
+    const a = newJob(["Informe_Final_2025.pdf", "Presupuesto_Q4.xlsx"], "C:\\Users\\ana\\Restaurado", t, sources[1].path);
+    simulate(a, 2, 4_800_000);
+    const b = newJob(["Fotos"], "D:\\Rescate", t, sources[1].path);
+    setTimeout(() => simulate(b, 9100, 38_000_000_000), 3000);
+  }
 
   return {
     async loadSettings() {
@@ -240,5 +324,43 @@ export function mockApi(): Api {
       return { depth, entries };
     },
     async setWindowTheme() {},
+    async chooseDestination() {
+      await delay(200);
+      return params.get("pick") === "cancel" ? null : "C:\\Users\\ana\\Restaurado";
+    },
+    async restoreConflicts() {
+      await delay(150);
+      return params.get("conflict") === "overwrite" ? ["C:\\Users\\ana\\Restaurado\\Informe_Final_2025.pdf"] : [];
+    },
+    async startRestore(req) {
+      await delay(150);
+      const names = req.names.length ? req.names : [req.path.at(-1) ?? req.source.path.split("/").filter(Boolean).at(-1) ?? "root"];
+      const job = newJob(names, req.dest, req.snapshotTime, req.source.path);
+      emit(job);
+      const running = jobs.some((j) => j.state === "running");
+      setTimeout(() => simulate(job, 120 * names.length, 350_000_000 * names.length), running ? 4000 : 300);
+      return job.id;
+    },
+    async listRestores() {
+      return jobs.map((j) => ({ ...j }));
+    },
+    async cancelRestore(id) {
+      const job = jobs.find((j) => j.id === id);
+      if (!job) return;
+      job.state = "cancelled";
+      job.summary = {
+        topLevel: [], filesRestored: job.filesDone, bytesRestored: job.bytesDone, dirsCreated: 3, renamed: [], renamedCount: 0,
+        skippedLinks: [], skippedLinksCount: 0, skippedExisting: [], skippedExistingCount: 0, errors: [], errorsCount: 0,
+      };
+      emit(job);
+    },
+    async clearRestores() {
+      for (let i = jobs.length - 1; i >= 0; i--) if (jobs[i].state !== "running" && jobs[i].state !== "queued") jobs.splice(i, 1);
+    },
+    async openRestoreFolder() {},
+    async onRestoreProgress(callback) {
+      listeners.push(callback);
+      return () => listeners.splice(listeners.indexOf(callback), 1);
+    },
   };
 }

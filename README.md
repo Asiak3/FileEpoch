@@ -5,9 +5,9 @@ Rewind connects to a Kopia web server (ideally one started with `--readonly`), l
 through snapshots on a timeline, browse files as they were, and restore them **to your own
 computer**.
 
-> **Status: early development.** Browsing works: connect, pick a source, move along the
-> timeline and explore folders. Restoring from the app comes next (the command-line tool can
-> already download single files).
+> **Status: early development.** Browsing and restoring work against Kopia 0.23.1: connect,
+> pick a source, move along the timeline, explore folders and restore files, folders or a whole
+> snapshot to your computer. Packaging (installer) comes next.
 
 ## Safety by design
 
@@ -67,6 +67,18 @@ Using it:
 - **Staying in the folder while moving in time:** Rewind remembers the folder you opened. If it does
   not exist at the selected time, the nearest existing parent folder is shown (the missing part of
   the path appears struck through); move to a time where it exists and you are back in it.
+- **Views:** details, list, large icons and tiles. In details, drag a column separator to resize
+  it and right-click the header to show or hide columns (date, type, size, files, permissions,
+  owner).
+- **Restoring:** select items and press *Restore* (or right-click → *Restore…*); with nothing
+  selected the button restores the folder you are looking at (right-click on empty space does the
+  same). Rewind asks for the destination folder every time. Restores run one after another in the
+  background; the *Restores* panel shows progress, lets you cancel, and summarizes renamed items,
+  skipped links and errors.
+- **Restore options** (settings menu): name restored items with "(restored <date>)" or keep the
+  original name; the date is the snapshot time or the file's modification date; if an item already
+  exists, keep both (default), skip it, or overwrite it — overwriting always asks first and lists
+  what would be replaced. Optionally verify size and date of every restored file.
 - All times are shown in your local time zone. Languages: English, Spanish, German.
 
 To work on the user interface without a Kopia server, `npm run dev` serves it at
@@ -89,11 +101,12 @@ rewind-cli ... sources
 rewind-cli ... snapshots --source docs            # identical snapshots grouped; --all shows each
 rewind-cli ... ls --source docs --snapshot latest --path some/folder
 rewind-cli ... download --source docs --snapshot "2026-11-25 19:00" --path some/folder/file.pdf --out .
+rewind-cli ... download --source docs --path some/folder --out .   # a whole folder (no --path: whole snapshot)
 rewind-cli ... forget-password
 ```
 
 Times are shown in your local time zone. `download` writes `file (restored <snapshot time>).pdf`
-(or `--keep-name`), never overwrites, verifies the size and restores the modification time.
+(or `--keep-name`), never overwrites, verifies sizes and restores modification times.
 
 ## Repository layout
 

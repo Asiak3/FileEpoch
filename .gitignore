@@ -22,3 +22,9 @@ Thumbs.db
 # Build output
 target/
 __pycache__/
+
+# Sync clients (Nextcloud, Windows)
+.nextcloudsync.log
+.sync_*.db*
+.owncloudsync.log
+Desktop.ini

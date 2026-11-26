@@ -10,15 +10,36 @@
   import SourcePicker from "./lib/components/SourcePicker.svelte";
   import SettingsMenu from "./lib/components/SettingsMenu.svelte";
   import Icon from "./lib/components/Icon.svelte";
+  import RestorePanel from "./lib/components/RestorePanel.svelte";
+  import ConfirmDialog from "./lib/components/ConfirmDialog.svelte";
+  import type { Entry } from "./lib/api";
+  import type { MenuItem } from "./lib/components/ContextMenu.svelte";
 
   let untestedDismissed = $state(false);
+  let panelButton: HTMLButtonElement | undefined = $state();
+
+  const restoreItems = (selected: Entry[]): MenuItem[] =>
+    selected.length && app.point ? [{ label: t("restore.action"), icon: "restore", primary: true, action: () => app.restore(selected) }] : [];
+  const restoreFolder = (): MenuItem[] =>
+    app.point ? [{ label: t("restore.folder"), icon: "restore", primary: true, action: () => app.restore(null) }] : [];
+
+  function restoreButton() {
+    const selected = app.visible.filter((e) => app.selection.has(e.name));
+    void app.restore(selected.length ? selected : null);
+  }
+
+  let active = $derived(app.activeJobs);
+  let activePct = $derived.by(() => {
+    const total = active.reduce((a, j) => a + j.bytesTotal, 0);
+    return total ? (active.reduce((a, j) => a + j.bytesDone, 0) / total) * 100 : 0;
+  });
 
   onMount(() => {
     void app.init();
     // Only Rewind's own context menus: hide the browser's (Back, Refresh, Print…) except in text fields.
     const suppress = (e: MouseEvent) => {
-      const el = e.target as HTMLElement;
-      if (!el.closest("input, textarea, [contenteditable=true]")) e.preventDefault();
+      const el = e.target instanceof Element ? e.target : null;
+      if (!el?.closest("input, textarea, [contenteditable=true]")) e.preventDefault();
     };
     document.addEventListener("contextmenu", suppress);
     return () => document.removeEventListener("contextmenu", suppress);
@@ -81,7 +102,7 @@
 
     <section class="browser">
       <Toolbar />
-      <FileList />
+      <FileList extraItemActions={restoreItems} extraFolderActions={restoreFolder} />
     </section>
 
     <footer class="status">
@@ -101,7 +122,47 @@
           Kopia {app.connection.version ? `v${app.connection.version}` : ""}{app.connection.readonly ? ` · ${t("app.readonly")}` : ""}
         </span>
       {/if}
+      <button
+        class="jobs-btn"
+        class:busy={active.length > 0}
+        bind:this={panelButton}
+        onclick={() => (app.restorePanelOpen = !app.restorePanelOpen)}
+        aria-expanded={app.restorePanelOpen}
+        aria-haspopup="dialog"
+        title={t("restore.panel")}
+      >
+        {#if active.length}
+          <svg class="ring" width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
+            <circle cx="10" cy="10" r="8" fill="none" stroke="var(--surface-3)" stroke-width="3" />
+            <circle cx="10" cy="10" r="8" fill="none" stroke="var(--accent)" stroke-width="3" stroke-dasharray="{(activePct / 100) * 50.3} 50.3" transform="rotate(-90 10 10)" />
+          </svg>
+        {:else}
+          <Icon name="download" size={16} />
+        {/if}
+        <span>{t("restore.panel")}</span>
+        {#if active.length}<span class="count">{active.length}</span>{/if}
+      </button>
+      <button class="btn primary restore" onclick={restoreButton} disabled={!app.point}>
+        <Icon name="restore" size={16} />
+        {app.selection.size ? `${t("restore.button")} (${app.selection.size})` : t("restore.buttonFolder")}
+      </button>
     </footer>
+  </div>
+
+  {#if app.restorePanelOpen}
+    <RestorePanel anchor={panelButton} />
+  {/if}
+{/if}
+
+{#if app.confirmState}
+  <ConfirmDialog />
+{/if}
+
+{#if app.toast}
+  <div class="toast" role="status">
+    <Icon name="warning" size={16} />
+    <span>{app.toast}</span>
+    <button class="icon-btn" onclick={() => (app.toast = null)} aria-label={t("common.close")}><Icon name="x" size={14} /></button>
   </div>
 {/if}
 
@@ -206,8 +267,8 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    height: 34px;
-    padding: 0 22px;
+    height: 48px;
+    padding: 0 14px 0 22px;
     color: var(--text-2);
     font-size: 12.5px;
     flex: none;
@@ -226,5 +287,71 @@
 
   .conn.ro {
     color: var(--success);
+  }
+
+  .jobs-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 32px;
+    margin-left: 10px;
+    padding: 0 10px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-2);
+    font-size: 12.5px;
+  }
+
+  .jobs-btn:hover,
+  .jobs-btn[aria-expanded="true"] {
+    background: var(--hover);
+    border-color: var(--border);
+  }
+
+  .jobs-btn.busy {
+    color: var(--accent);
+  }
+
+  .count {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--accent);
+    color: var(--accent-fg);
+    font-size: 11px;
+    font-weight: 600;
+    display: grid;
+    place-items: center;
+  }
+
+  .restore {
+    height: 32px;
+    padding: 0 14px;
+  }
+
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 60px;
+    transform: translateX(-50%);
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: min(640px, calc(100vw - 40px));
+    padding: 8px 8px 8px 14px;
+    border-radius: var(--radius);
+    background: var(--text);
+    color: var(--bg);
+    box-shadow: var(--shadow-pop);
+    font-size: 13px;
+  }
+
+  .toast .icon-btn {
+    width: 26px;
+    height: 26px;
+    color: inherit;
   }
 </style>

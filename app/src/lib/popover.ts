@@ -1,7 +1,8 @@
 // Closes a popover on outside click or Escape. Returns a cleanup function for $effect.
-export function dismissable(root: HTMLElement, close: () => void): () => void {
+export function dismissable(root: HTMLElement, close: () => void, ignore?: HTMLElement): () => void {
   const onPointer = (e: PointerEvent) => {
-    if (!root.contains(e.target as Node)) close();
+    const target = e.target as Node;
+    if (!root.contains(target) && !ignore?.contains(target)) close();
   };
   const onKey = (e: KeyboardEvent) => {
     if (e.key === "Escape") {

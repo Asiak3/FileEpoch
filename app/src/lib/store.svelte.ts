@@ -11,12 +11,14 @@ import {
   type ConnectRequest,
   type ConnectResult,
   type Entry,
+  type RestoreJob,
+  type RestoreRequest,
   type Settings,
   type Snapshot,
   type Source,
   type ViewMode,
 } from "./api";
-import { i18n, resolveLocale } from "./i18n.svelte";
+import { i18n, resolveLocale, t } from "./i18n.svelte";
 import { buildPoints, indexNearest, type TimePoint } from "./timeline";
 
 export type SortKey = "name" | ColumnId;
@@ -103,6 +105,18 @@ class AppStore {
   selection = $state.raw<Set<string>>(new Set());
   focusName = $state<string | null>(null);
 
+  /** Restore jobs, newest first. */
+  jobs = $state<RestoreJob[]>([]);
+  activeJobs = $derived(this.jobs.filter((j) => j.state === "queued" || j.state === "running"));
+  restorePanelOpen = $state(false);
+  /** Modal confirmation (overwrite). */
+  confirmState = $state<{ title: string; body: string; items: string[]; yes: string; resolve: (ok: boolean) => void } | null>(
+    null,
+  );
+  /** Short message at the bottom of the window. */
+  toast = $state<string | null>(null);
+  private toastTimer: ReturnType<typeof setTimeout> | undefined;
+
   private seq = 0;
   private loadTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -169,6 +183,8 @@ class AppStore {
 
     this.settings = await this.api.loadSettings();
     this.applyPreferences();
+    await this.api.onRestoreProgress((job) => this.upsertJob(job));
+    this.jobs = (await this.api.listRestores()).reverse();
     const s = this.settings;
     if (s.server && s.user && s.fingerprint) {
       await this.connect({ server: s.server, user: s.user, fingerprint: s.fingerprint, password: null, remember: false });
@@ -380,6 +396,94 @@ class AppStore {
 
   resetColumns() {
     void this.saveSettings({ columns: [] });
+  }
+
+  // --- restore -------------------------------------------------------------------------------
+
+  private upsertJob(job: RestoreJob) {
+    const i = this.jobs.findIndex((j) => j.id === job.id);
+    this.jobs = i < 0 ? [job, ...this.jobs] : this.jobs.map((j) => (j.id === job.id ? job : j));
+  }
+
+  showToast(message: string) {
+    clearTimeout(this.toastTimer);
+    this.toast = message;
+    this.toastTimer = setTimeout(() => (this.toast = null), 6000);
+  }
+
+  confirm(options: { title: string; body: string; items: string[]; yes: string }): Promise<boolean> {
+    return new Promise((resolve) => {
+      this.confirmState = {
+        ...options,
+        resolve: (ok) => {
+          this.confirmState = null;
+          resolve(ok);
+        },
+      };
+    });
+  }
+
+  /**
+   * Restores `entries` of the shown folder, or the shown folder itself when null.
+   * The snapshot and folder are captured now: moving the timeline afterwards does not change
+   * what is restored. Asks for the destination every time.
+   */
+  async restore(entries: Entry[] | null) {
+    const point = this.point;
+    const source = this.source;
+    if (!point || !source) return;
+    const base = {
+      source,
+      snapshotRoot: point.snapshot.rootId,
+      snapshotTime: point.snapshot.startTime,
+      path: [...this.shownPath],
+      names: entries ? entries.map((e) => e.name) : [],
+    };
+    try {
+      const dest = await this.api.chooseDestination(this.settings.lastRestoreDir || null, t("restore.pickTitle"));
+      if (!dest) return;
+      void this.saveSettings({ lastRestoreDir: dest });
+      const s = this.settings;
+      const request: RestoreRequest = {
+        ...base,
+        dest,
+        naming: s.restoreNaming,
+        suffixDate: s.suffixDate,
+        label: t("restore.word"),
+        conflict: s.conflict,
+        overwriteConfirmed: false,
+        verify: s.verify,
+      };
+      if (s.conflict === "overwrite") {
+        const existing = await this.api.restoreConflicts(request);
+        if (existing.length === 0) {
+          request.conflict = "skip"; // nothing would be overwritten
+        } else {
+          const ok = await this.confirm({
+            title: t("restore.confirmTitle"),
+            body: t("restore.confirmBody"),
+            items: existing,
+            yes: t("restore.confirmYes"),
+          });
+          if (!ok) return;
+          request.overwriteConfirmed = true;
+        }
+      }
+      await this.api.startRestore(request);
+      this.restorePanelOpen = true;
+    } catch (e) {
+      const err = toApiError(e);
+      this.showToast(`${t(`err.${err.code}`)} ${err.code === "other" ? err.message : ""}`.trim());
+    }
+  }
+
+  async cancelRestore(id: number) {
+    await this.api.cancelRestore(id);
+  }
+
+  async clearRestores() {
+    await this.api.clearRestores();
+    this.jobs = this.jobs.filter((j) => j.state === "queued" || j.state === "running");
   }
 
   sortBy(key: SortKey) {

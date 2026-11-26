@@ -117,6 +117,57 @@ export interface ApiError {
   presented?: string;
 }
 
+export interface RestoreRequest {
+  source: Source;
+  snapshotRoot: string;
+  snapshotTime: string;
+  /** Folder shown (names below the snapshot root). */
+  path: string[];
+  /** Selected names in that folder; empty = the folder itself. */
+  names: string[];
+  dest: string;
+  naming: Settings["restoreNaming"];
+  suffixDate: Settings["suffixDate"];
+  label: string;
+  conflict: Settings["conflict"];
+  overwriteConfirmed: boolean;
+  verify: boolean;
+}
+
+export interface RestoreSummary {
+  topLevel: string[];
+  filesRestored: number;
+  bytesRestored: number;
+  dirsCreated: number;
+  renamed: [string, string][];
+  renamedCount: number;
+  skippedLinks: string[];
+  skippedLinksCount: number;
+  skippedExisting: string[];
+  skippedExistingCount: number;
+  errors: [string, string][];
+  errorsCount: number;
+}
+
+export interface RestoreJob {
+  id: number;
+  state: "queued" | "running" | "done" | "cancelled" | "failed";
+  phase: "scanning" | "downloading" | "finishing";
+  sourcePath: string;
+  snapshotTime: string;
+  items: string[];
+  itemCount: number;
+  dest: string;
+  dirsScanned: number;
+  filesTotal: number;
+  filesDone: number;
+  bytesTotal: number;
+  bytesDone: number;
+  current: string;
+  summary: RestoreSummary | null;
+  error: string | null;
+}
+
 export interface Api {
   loadSettings(): Promise<Settings>;
   saveSettings(settings: Settings): Promise<void>;
@@ -128,6 +179,15 @@ export interface Api {
   listSnapshots(source: Source): Promise<Snapshot[]>;
   openPath(root: string, path: string[]): Promise<Listing>;
   setWindowTheme(theme: "light" | "dark" | null): Promise<void>;
+  chooseDestination(start: string | null, title: string): Promise<string | null>;
+  restoreConflicts(request: RestoreRequest): Promise<string[]>;
+  startRestore(request: RestoreRequest): Promise<number>;
+  listRestores(): Promise<RestoreJob[]>;
+  cancelRestore(id: number): Promise<void>;
+  clearRestores(): Promise<void>;
+  openRestoreFolder(id: number): Promise<void>;
+  /** Subscribes to job updates; returns an unsubscribe function. */
+  onRestoreProgress(callback: (job: RestoreJob) => void): Promise<() => void>;
 }
 
 export function isApiError(e: unknown): e is ApiError {
@@ -146,6 +206,7 @@ export function sourceKey(s: Source): string {
 async function tauriApi(): Promise<Api> {
   const { invoke } = await import("@tauri-apps/api/core");
   const { getCurrentWindow } = await import("@tauri-apps/api/window");
+  const { listen } = await import("@tauri-apps/api/event");
   return {
     loadSettings: () => invoke("load_settings"),
     saveSettings: (settings) => invoke("save_settings", { settings }),
@@ -157,6 +218,14 @@ async function tauriApi(): Promise<Api> {
     listSnapshots: (source) => invoke("list_snapshots", { source }),
     openPath: (root, path) => invoke("open_path", { root, path }),
     setWindowTheme: (theme) => getCurrentWindow().setTheme(theme),
+    chooseDestination: (start, title) => invoke("choose_destination", { start, title }),
+    restoreConflicts: (request) => invoke("restore_conflicts", { request }),
+    startRestore: (request) => invoke("start_restore", { request }),
+    listRestores: () => invoke("list_restores"),
+    cancelRestore: (id) => invoke("cancel_restore", { id }),
+    clearRestores: () => invoke("clear_restores"),
+    openRestoreFolder: (id) => invoke("open_restore_folder", { id }),
+    onRestoreProgress: (callback) => listen<RestoreJob>("restore-progress", (e) => callback(e.payload)),
   };
 }
 
