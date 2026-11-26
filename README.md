@@ -61,7 +61,9 @@ Using it:
 
 - **Timeline** (top): click or drag to move through time; arrow keys, Home/End and PgUp/PgDn work
   when it has focus. Consecutive snapshots with identical content are grouped ("unchanged until …");
-  switch off *Group identical* to see each one.
+  switch off *Group identical* to see each one. The selected version shows its total size and
+  number of files, and how much the total changed since the previous version (Kopia stores
+  unchanged data only once, so this is not the space it takes on the server).
 - **Files** (below): double-click or Enter opens a folder, Backspace goes up, Alt+←/→ go back and
   forward, Ctrl+F searches the current folder, Ctrl/Shift+click selects several items.
 - **Staying in the folder while moving in time:** Rewind remembers the folder you opened. If it does

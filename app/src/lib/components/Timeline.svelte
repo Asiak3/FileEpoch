@@ -192,13 +192,28 @@
   });
 
   let point = $derived(app.point);
-  let bubbleLeft = $derived(index >= 0 ? Math.max(130, Math.min(width - 130, x(index) - scrollLeft)) : 0);
+  let bubbleLeft = $derived(index >= 0 ? Math.max(150, Math.min(width - 150, x(index) - scrollLeft)) : 0);
   let hoverPoint = $derived(hover !== null && hover !== index ? points[hover] : null);
   let hoverLeft = $derived(hover !== null ? x(hover) - scrollLeft : 0);
 
+  /** "434,6 GB · 215.266 archivos": the total size of the files in that version. */
+  function sizeText(i: number): string {
+    const s = points[i]?.snapshot;
+    return s ? t("version.size", { n: s.files, size: i18n.size(s.size) }) : "";
+  }
+
+  /** Change of the total size since the previous point ("+1,2 GB"), or "" when none. */
+  function deltaText(i: number): string {
+    if (i <= 0 || !points[i]) return "";
+    const d = points[i].snapshot.size - points[i - 1].snapshot.size;
+    if (d === 0) return "";
+    return `${d > 0 ? "+" : "−"}${i18n.size(Math.abs(d))}`;
+  }
+
   function valueText(): string {
     if (!point) return "";
-    return i18n.dateTime(point.time);
+    const delta = deltaText(index);
+    return [i18n.dateTime(point.time), sizeText(index), delta ? t("version.delta", { delta }) : ""].filter(Boolean).join(" · ");
   }
 
   let distinct = $derived(new Set(app.snapshots.map((s) => s.rootId)).size);
@@ -247,10 +262,14 @@
               · <em>{t("timeline.incomplete")}</em>
             {/if}
           </span>
+          <span class="size">
+            {sizeText(index)}
+            {#if deltaText(index)}<span class="delta">({deltaText(index)})</span>{/if}
+          </span>
         </div>
       {/if}
       {#if hoverPoint && !dragging}
-        <div class="hover-tip" style:left="{hoverLeft}px" aria-hidden="true">{i18n.dateTime(hoverPoint.time)}</div>
+        <div class="hover-tip" style:left="{hoverLeft}px" aria-hidden="true">{i18n.dateTime(hoverPoint.time)} · {i18n.size(hoverPoint.snapshot.size)}</div>
       {/if}
 
       <div
@@ -389,7 +408,7 @@
     position: relative;
     flex: 1;
     min-width: 0;
-    padding-top: 50px;
+    padding-top: 66px;
   }
 
   .bubble {
@@ -418,6 +437,15 @@
     color: var(--text);
   }
 
+  .bubble .size {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .bubble .delta {
+    margin-left: 5px;
+    color: var(--text-3);
+  }
+
   .bubble em {
     color: var(--danger);
     font-style: normal;
@@ -425,7 +453,7 @@
 
   .hover-tip {
     position: absolute;
-    top: 52px;
+    top: 68px;
     transform: translate(-50%, -100%);
     padding: 2px 7px;
     border-radius: 4px;
