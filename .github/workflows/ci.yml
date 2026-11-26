@@ -1,0 +1,69 @@
+# Checks every push and pull request: formatting, lints, tests and the user interface types.
+# Windows and Linux only (macOS minutes are expensive on a private repository; the release
+# workflow builds macOS).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux system libraries (WebKitGTK, tray)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev build-essential
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Versions agree
+        run: node tools/set-version.mjs --check
+
+      - name: Install UI dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: UI type check
+        working-directory: app
+        run: npx svelte-check --threshold warning
+
+      # The desktop crate embeds the built UI, so build it before clippy.
+      - name: Build UI
+        working-directory: app
+        run: npm run build
+
+      - name: Rust formatting
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Tests
+        run: cargo test --workspace

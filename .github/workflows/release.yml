@@ -1,0 +1,78 @@
+# Builds installers for Windows, Linux and macOS when a version tag (v1.2.3) is pushed, signs the
+# update packages and creates a DRAFT GitHub release with them and latest.json. Nothing is public
+# (and the updater does not see it) until someone reviews and publishes the draft.
+#
+# Needs the repository secret TAURI_SIGNING_PRIVATE_KEY (contents of the updater private key).
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            args: ""
+          # Oldest supported Ubuntu, so the AppImage and .deb run on older distributions too.
+          - platform: ubuntu-22.04
+            args: ""
+          - platform: macos-latest
+            args: "--target universal-apple-darwin"
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Versions agree with the tag
+        shell: bash
+        run: |
+          node tools/set-version.mjs --check
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            v=$(node -p "require('./app/package.json').version")
+            [[ "$GITHUB_REF_NAME" == "v$v" ]] || { echo "Tag $GITHUB_REF_NAME does not match version $v"; exit 1; }
+          fi
+
+      - name: Linux system libraries (WebKitGTK, tray)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev build-essential
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ runner.os == 'macOS' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install UI dependencies
+        working-directory: app
+        run: npm ci
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        with:
+          projectPath: app
+          tagName: v__VERSION__
+          releaseName: FileEpoch v__VERSION__
+          releaseBody: "See CHANGELOG.md for what changed. Installers: Windows (setup.exe), Linux (AppImage, .deb), macOS (.dmg, not signed by Apple yet)."
+          releaseDraft: true
+          prerelease: false
+          updaterJsonPreferNsis: true
+          # Updater packages and signatures are only produced here (local builds need no key).
+          args: --config src-tauri/tauri.release.conf.json ${{ matrix.args }}
