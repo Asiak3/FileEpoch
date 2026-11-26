@@ -82,6 +82,19 @@
         <span>{t("banner.notReadonly")}</span>
       </div>
     {/if}
+    {#if app.update && !app.updateDismissed}
+      <div class="banner info update" role="status">
+        <Icon name="download" size={17} />
+        {#if app.updateStatus === "installing"}
+          <span>{t("update.installing", { pct: app.updatePercent === null ? "" : `${app.updatePercent} %` })}</span>
+        {:else}
+          <span>{t("update.available", { version: app.update.version, current: app.update.current })}</span>
+          <button class="link-btn" onclick={() => app.api.openReleasePage(app.update!.version)}>{t("update.notes")}</button>
+          <button class="btn primary small" onclick={() => app.installUpdate()}>{t("update.install")}</button>
+          <button class="icon-btn" onclick={() => (app.updateDismissed = true)} aria-label={t("common.close")}><Icon name="x" size={14} /></button>
+        {/if}
+      </div>
+    {/if}
     {#if app.connection?.untestedVersion && !untestedDismissed}
       <div class="banner info" role="status">
         <Icon name="info" size={17} />
@@ -215,6 +228,25 @@
   .banner.info {
     background: var(--info-bg);
     color: var(--info-fg);
+  }
+
+  .banner.update span {
+    flex: 1;
+  }
+
+  .link-btn {
+    border: none;
+    background: none;
+    color: inherit;
+    font-size: 13px;
+    text-decoration: underline;
+    padding: 2px 4px;
+  }
+
+  .btn.small {
+    height: 28px;
+    padding: 0 12px;
+    font-size: 12.5px;
   }
 
   .banner .icon-btn {

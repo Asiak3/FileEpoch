@@ -41,6 +41,8 @@ pub struct Settings {
     pub tray: bool,
     /// Look of the timeline: `glass` (default) or `simple`.
     pub timeline: String,
+    /// Check GitHub for a newer version at start and once a day.
+    pub auto_update: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -71,6 +73,7 @@ impl Default for Settings {
             thumbnails: true,
             tray: false,
             timeline: "glass".into(),
+            auto_update: true,
         }
     }
 }

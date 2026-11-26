@@ -4,7 +4,7 @@
 // URL parameters: ?screen=connect  ?lang=es|de|en  ?theme=light|dark  ?source=<n>  ?path=a/b
 //                 ?mismatch=1  ?readonly=0  ?version=0.99.0
 
-import type { Api, Entry, Listing, RestoreJob, Settings, Snapshot, Source } from "./api";
+import type { Api, Entry, Listing, RestoreJob, Settings, Snapshot, Source, UpdateProgress } from "./api";
 
 const params = new URLSearchParams(location.search);
 const FP_HEX = "3f9a0c5e7b21d4486a0e9f13c2b75d8e41a6f0c97e2b5d3184c6a9e07f1b2d4c";
@@ -149,6 +149,7 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export function mockApi(): Api {
   const screen = params.get("screen");
   let autostart = false;
+  const updateListeners: ((p: UpdateProgress) => void)[] = [];
   const settings: Settings = {
     server: screen === "connect" ? "" : "https://backup.example:51515",
     user: screen === "connect" ? "" : "kopia",
@@ -174,6 +175,7 @@ export function mockApi(): Api {
     thumbnails: true,
     tray: false,
     timeline: (params.get("tl") as Settings["timeline"]) ?? "glass",
+    autoUpdate: true,
   };
   const sourceIndex = Number(params.get("source") ?? "1");
   settings.lastSource = `${sources[sourceIndex].userName}@${sources[sourceIndex].host}:${sources[sourceIndex].path}`;
@@ -378,6 +380,26 @@ export function mockApi(): Api {
     },
     async onQuitRequested() {
       return () => {};
+    },
+    // ?update=1 pretends that version 0.2.0 is available.
+    async checkUpdate() {
+      await new Promise((r) => setTimeout(r, 600));
+      return params.get("update") ? { version: "0.2.0", current: "0.1.0", notes: "Faster thumbnails." } : null;
+    },
+    async installUpdate() {
+      const total = 6_000_000;
+      for (let d = 0; d <= total; d += 600_000) {
+        updateListeners.forEach((l) => l({ downloaded: d, total }));
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      location.reload();
+    },
+    async openReleasePage(version) {
+      window.open(`https://github.com/Asiak3/FileEpoch/releases/tag/v${version}`, "_blank", "noopener");
+    },
+    async onUpdateProgress(callback) {
+      updateListeners.push(callback);
+      return () => updateListeners.splice(updateListeners.indexOf(callback), 1);
     },
     async thumbnail(oid) {
       // A made-up "photo" (sky, sun, hills) whose colours depend on the object id.

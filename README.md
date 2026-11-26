@@ -86,6 +86,11 @@ Using it:
   date) or keep the original name; the menu shows an example from the current folder. If an item already
   exists, keep both (default), skip it, or overwrite it — overwriting always asks first and lists
   what would be replaced. Optionally verify size and date of every restored file.
+- **Updates** (settings, *System* tab): FileEpoch checks GitHub for a newer version at start and
+  once a day (can be switched off; *Check now* checks right away). A banner offers *What's new* and
+  *Install and restart*; nothing is installed without asking, and never while a restore runs.
+  Updates are signed and verified before they are installed. This is the only connection besides
+  your Kopia server, and it sends nothing about you or your server.
 - **Tray and start with Windows** (settings, *System* tab; both off by default): closing the window can keep
   FileEpoch running next to the clock (click the icon to open it; *Quit* in its menu). Started with
   Windows and with the tray option on, it starts hidden in the tray. Quitting while a restore runs

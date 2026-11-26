@@ -41,6 +41,19 @@ export interface Settings {
   tray: boolean;
   /** Look of the timeline. */
   timeline: "glass" | "simple";
+  /** Check GitHub for a newer version at start and once a day. */
+  autoUpdate: boolean;
+}
+
+export interface UpdateInfo {
+  version: string;
+  current: string;
+  notes: string | null;
+}
+
+export interface UpdateProgress {
+  downloaded: number;
+  total: number | null;
 }
 
 export interface Source {
@@ -120,6 +133,9 @@ export type ErrorCode =
   | "incompatible"
   | "credential_store"
   | "password_required"
+  | "update_check"
+  | "update_install"
+  | "restore_running"
   | "saved_password_rejected"
   | "not_connected_app"
   | "other";
@@ -211,6 +227,12 @@ export interface Api {
   openProjectPage(): Promise<void>;
   /** Closing/quitting while restores run: the UI asks first. */
   onQuitRequested(callback: () => void): Promise<() => void>;
+  /** Newer version on GitHub, or null when up to date. */
+  checkUpdate(): Promise<UpdateInfo | null>;
+  /** Downloads and installs the update found by checkUpdate, then restarts. */
+  installUpdate(): Promise<void>;
+  openReleasePage(version: string): Promise<void>;
+  onUpdateProgress(callback: (p: UpdateProgress) => void): Promise<() => void>;
   /** Subscribes to job updates; returns an unsubscribe function. */
   onRestoreProgress(callback: (job: RestoreJob) => void): Promise<() => void>;
 }
@@ -257,6 +279,10 @@ async function tauriApi(): Promise<Api> {
     quitApp: () => invoke("quit_app"),
     openProjectPage: () => invoke("open_project_page"),
     onQuitRequested: (callback) => listen("quit-requested", () => callback()),
+    checkUpdate: () => invoke("check_update"),
+    installUpdate: () => invoke("install_update"),
+    openReleasePage: (version) => invoke("open_release_page", { version }),
+    onUpdateProgress: (callback) => listen<UpdateProgress>("update-progress", (e) => callback(e.payload)),
     onRestoreProgress: (callback) => listen<RestoreJob>("restore-progress", (e) => callback(e.payload)),
   };
 }

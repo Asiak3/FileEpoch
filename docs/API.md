@@ -50,6 +50,14 @@ GET  /api/v1/objects/{oid}      {oid} must match ^(I+|Z)?[g-z]?[0-9a-f]{2,64}$
 Any other method/path combination must be rejected inside the client, before anything goes out on
 the network. See §7 for why: `--readonly` does **not** make the other endpoints safe.
 
+The only network access of the app that is *not* to the Kopia server is the update check
+(`app/src-tauri/src/updates.rs`, Tauri updater plugin): `GET` of
+`https://github.com/Asiak3/FileEpoch/releases/latest/download/latest.json` and, when the user
+accepts an update, the package it names. It is outside this whitelist on purpose (different host,
+separate HTTP client), happens only while "check for updates automatically" is on (the default) or
+on "check now", sends no data about the user or the server, and the package is verified against
+the public key in `tauri.conf.json` before it is installed.
+
 ---
 
 ## 2. Authentication

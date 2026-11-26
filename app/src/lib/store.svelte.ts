@@ -17,6 +17,7 @@ import {
   type Settings,
   type Snapshot,
   type Source,
+  type UpdateInfo,
   type ViewMode,
 } from "./api";
 import { i18n, resolveLocale, t } from "./i18n.svelte";
@@ -36,6 +37,9 @@ export const DEFAULT_COLUMNS: ColumnSetting[] = [
 
 /** How often the list of versions is reloaded while FileEpoch is open. */
 const REFRESH_MS = 5 * 60_000;
+/** First update check after start, then one a day. */
+const UPDATE_FIRST_MS = 20_000;
+const UPDATE_EVERY_MS = 24 * 60 * 60_000;
 export const MIN_COLUMN = 60;
 export const MAX_COLUMN = 520;
 /** The name column: narrowest width, and widest after resizing. */
@@ -70,6 +74,7 @@ class AppStore {
     thumbnails: true,
     tray: false,
     timeline: "glass",
+    autoUpdate: true,
   });
 
   /** Saved column settings merged over the defaults (new columns appear, unknown ones vanish). */
@@ -135,6 +140,11 @@ class AppStore {
   private loadTimer: ReturnType<typeof setTimeout> | undefined;
   /** Starts with the operating system (read from the system). */
   autostart = $state(false);
+  /** A newer version found on GitHub, and the state of checking / installing it. */
+  update = $state<UpdateInfo | null>(null);
+  updateStatus = $state<"idle" | "checking" | "current" | "failed" | "installing">("idle");
+  updatePercent = $state<number | null>(null);
+  updateDismissed = $state(false);
   private trayKey = "";
   /** When the list of versions was last loaded (ms), and whether it is being reloaded. */
   refreshedAt = $state(0);
@@ -205,6 +215,10 @@ class AppStore {
     this.applyPreferences();
     this.autostart = await this.api.getAutostart().catch(() => false);
     await this.api.onQuitRequested(() => void this.confirmQuit());
+    await this.api.onUpdateProgress((p) => (this.updatePercent = p.total ? Math.round((p.downloaded / p.total) * 100) : null));
+    // Updates: shortly after start, then once a day (only while the setting is on).
+    setTimeout(() => void this.checkForUpdates(false), UPDATE_FIRST_MS);
+    setInterval(() => void this.checkForUpdates(false), UPDATE_EVERY_MS);
     // New versions appear while FileEpoch stays open (e.g. in the tray): check every few minutes
     // and when the window comes back.
     setInterval(() => void this.refreshSnapshots(), REFRESH_MS);
@@ -238,6 +252,42 @@ class AppStore {
       this.autostart = await this.api.setAutostart(enabled);
     } catch (e) {
       this.showToast(toApiError(e).message);
+    }
+  }
+
+  /**
+   * Looks for a newer version. Automatic checks are silent when they fail (no network, GitHub
+   * unreachable); a manual check reports the result in the settings.
+   */
+  async checkForUpdates(manual: boolean) {
+    if (!manual && !this.settings.autoUpdate) return;
+    if (this.updateStatus === "checking" || this.updateStatus === "installing") return;
+    this.updateStatus = "checking";
+    try {
+      const found = await this.api.checkUpdate();
+      if (found && found.version !== this.update?.version) this.updateDismissed = false;
+      this.update = found;
+      this.updateStatus = found ? "idle" : "current";
+    } catch (e) {
+      console.warn("update check failed", toApiError(e).message);
+      this.updateStatus = manual ? "failed" : "idle";
+    }
+  }
+
+  async installUpdate() {
+    if (!this.update) return;
+    if (this.activeJobs.length) {
+      this.showToast(t("update.restoreRunning"));
+      return;
+    }
+    this.updateStatus = "installing";
+    this.updatePercent = null;
+    try {
+      await this.api.installUpdate(); // restarts FileEpoch on success
+    } catch (e) {
+      const err = toApiError(e);
+      this.updateStatus = "idle";
+      this.showToast(err.code === "restore_running" ? t("update.restoreRunning") : t("update.failed", { error: err.message }));
     }
   }
 

@@ -6,6 +6,7 @@ mod desktop;
 mod restore_jobs;
 mod settings;
 mod thumbnails;
+mod updates;
 
 use tauri::Manager;
 
@@ -26,9 +27,11 @@ fn main() {
             Some(vec![desktop::AUTOSTART_ARG]),
         ))
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(commands::AppState::default())
         .manage(thumbnails::Thumbnails::default())
         .manage(desktop::TrayState::default())
+        .manage(updates::PendingUpdate::default())
         .on_window_event(desktop::on_window_event)
         .setup(|app| {
             // Uninstalling with "delete the application data": remove the saved password and quit
@@ -75,6 +78,9 @@ fn main() {
             desktop::get_autostart,
             desktop::set_autostart,
             desktop::open_project_page,
+            updates::check_update,
+            updates::install_update,
+            updates::open_release_page,
         ])
         .run(tauri::generate_context!())
         .expect("error while running FileEpoch");

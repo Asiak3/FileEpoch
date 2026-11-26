@@ -147,6 +147,26 @@
               </select>
             </div>
             <div class="group">
+              <h4>{t("settings.updates")}</h4>
+              <label class="check">
+                <input type="checkbox" checked={app.settings.autoUpdate} onchange={(e) => app.saveSettings({ autoUpdate: e.currentTarget.checked })} />
+                <span>{t("settings.autoUpdate")}<small>{t("settings.autoUpdateHint")}</small></span>
+              </label>
+              <div class="update-row">
+                <button class="btn" onclick={() => app.checkForUpdates(true)} disabled={app.updateStatus === "checking" || app.updateStatus === "installing"}>
+                  <Icon name="refresh" size={15} />
+                  {t("settings.checkNow")}
+                </button>
+                <span class="update-status" role="status">
+                  {#if app.updateStatus === "checking"}{t("settings.checking")}
+                  {:else if app.update}{t("settings.updateFound", { version: app.update.version })}
+                  {:else if app.updateStatus === "current"}{t("settings.upToDate", { version: __APP_VERSION__ })}
+                  {:else if app.updateStatus === "failed"}{t("settings.checkFailed")}
+                  {/if}
+                </span>
+              </div>
+            </div>
+            <div class="group">
               <h4>{t("settings.desktop")}</h4>
               <label class="check">
                 <input type="checkbox" checked={app.settings.tray} onchange={(e) => app.saveSettings({ tray: e.currentTarget.checked })} />
@@ -465,6 +485,24 @@
     color: var(--text-3);
     font-size: 12px;
     line-height: 1.4;
+  }
+
+  .update-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .update-row .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .update-status {
+    color: var(--text-2);
+    font-size: 12.5px;
   }
 
   .server {
