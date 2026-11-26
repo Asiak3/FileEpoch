@@ -1,0 +1,262 @@
+/* Design tokens. Light and dark themes follow Windows 11 (Fluent) proportions. */
+:root {
+  --font: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial,
+    sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --mono: "Cascadia Mono", "Consolas", ui-monospace, monospace;
+  --radius: 8px;
+  --radius-sm: 5px;
+  --row: 34px;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  color-scheme: light;
+
+  --bg: #eef1f5;
+  --bg-elev: #f7f8fa;
+  --surface: #ffffff;
+  --surface-2: #f5f6f8;
+  --surface-3: #eceef2;
+  --border: #e1e4ea;
+  --border-strong: #cfd4dc;
+  --text: #1a1c20;
+  --text-2: #50565f;
+  --text-3: #808792;
+  --accent: #0a62c9;
+  --accent-hover: #0b57b0;
+  --accent-fg: #ffffff;
+  --accent-soft: rgba(10, 98, 201, 0.1);
+  --accent-softer: rgba(10, 98, 201, 0.06);
+  --hover: rgba(20, 30, 50, 0.045);
+  --active: rgba(20, 30, 50, 0.08);
+  --selected: rgba(10, 98, 201, 0.12);
+  --selected-hover: rgba(10, 98, 201, 0.17);
+  --tick: #b4bbc6;
+  --tick-major: #7f8896;
+  --danger: #c42b1c;
+  --danger-soft: rgba(196, 43, 28, 0.09);
+  --success: #0f7b0f;
+  --warn-bg: #fff4ce;
+  --warn-border: #f2d57a;
+  --warn-fg: #5c4100;
+  --info-bg: #e8f1fc;
+  --info-fg: #133f73;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 2px 8px rgba(15, 23, 42, 0.05);
+  --shadow-pop: 0 8px 28px rgba(15, 23, 42, 0.18), 0 2px 6px rgba(15, 23, 42, 0.08);
+  --focus: #0a62c9;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #16181d;
+  --bg-elev: #1b1e24;
+  --surface: #20232a;
+  --surface-2: #252830;
+  --surface-3: #2c3039;
+  --border: #31353f;
+  --border-strong: #3e434f;
+  --text: #f1f3f6;
+  --text-2: #b9bfca;
+  --text-3: #858c99;
+  --accent: #4cb4ff;
+  --accent-hover: #6fc2ff;
+  --accent-fg: #04223a;
+  --accent-soft: rgba(76, 180, 255, 0.16);
+  --accent-softer: rgba(76, 180, 255, 0.08);
+  --hover: rgba(255, 255, 255, 0.045);
+  --active: rgba(255, 255, 255, 0.08);
+  --selected: rgba(76, 180, 255, 0.17);
+  --selected-hover: rgba(76, 180, 255, 0.23);
+  --tick: #464c58;
+  --tick-major: #6f7786;
+  --danger: #ff8f7e;
+  --danger-soft: rgba(255, 110, 90, 0.12);
+  --success: #6ccb5f;
+  --warn-bg: #3a3214;
+  --warn-border: #5f5220;
+  --warn-fg: #f5dc8a;
+  --info-bg: #19304a;
+  --info-fg: #b7d8fb;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 10px rgba(0, 0, 0, 0.25);
+  --shadow-pop: 0 10px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --focus: #4cb4ff;
+  --file-paper: #f4f6f9;
+  --file-edge: #8d96a5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  user-select: none;
+}
+
+#app {
+  height: 100%;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+input[type="text"],
+input[type="password"],
+input[type="search"],
+input[type="url"] {
+  height: 34px;
+  padding: 0 11px;
+  border: 1px solid var(--border-strong);
+  border-bottom-color: var(--text-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  outline: none;
+  user-select: text;
+  transition: border-color 0.12s;
+}
+
+input:focus {
+  border-color: var(--border-strong);
+  border-bottom: 2px solid var(--accent);
+  padding-bottom: 1px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  font-weight: 500;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.btn.primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--accent-fg);
+}
+
+.btn.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-2);
+  transition: background 0.12s;
+}
+
+.icon-btn:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.icon-btn:active:not(:disabled) {
+  background: var(--active);
+}
+
+.icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-soft);
+  border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-3);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.no-anim *,
+.no-anim *::before,
+.no-anim *::after {
+  transition: none !important;
+  animation: none !important;
+}

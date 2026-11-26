@@ -1,0 +1,345 @@
+// Application state and actions.
+
+import {
+  loadApi,
+  sourceKey,
+  toApiError,
+  type Api,
+  type ApiError,
+  type ConnectRequest,
+  type ConnectResult,
+  type Entry,
+  type Settings,
+  type Snapshot,
+  type Source,
+} from "./api";
+import { i18n, resolveLocale } from "./i18n.svelte";
+import { buildPoints, indexNearest, type TimePoint } from "./timeline";
+
+export type SortKey = "name" | "mtime" | "type" | "size";
+type Screen = "loading" | "connect" | "mismatch" | "main";
+
+function normalize(s: string): string {
+  return s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+}
+
+class AppStore {
+  api!: Api;
+  isMock = false;
+
+  screen = $state<Screen>("loading");
+  settings = $state<Settings>({
+    server: "",
+    user: "",
+    fingerprint: "",
+    language: "auto",
+    theme: "system",
+    groupIdentical: true,
+    lastSource: "",
+  });
+  /** Error shown on the connect screen. */
+  connectError = $state<ApiError | null>(null);
+  /** Certificate presented by the server when it did not match the trusted one. */
+  presentedFingerprint = $state("");
+  connection = $state<ConnectResult | null>(null);
+  systemDark = $state(false);
+
+  sources = $state<Source[]>([]);
+  source = $state<Source | null>(null);
+  snapshots = $state.raw<Snapshot[]>([]);
+  snapshotsLoading = $state(false);
+  points = $derived<TimePoint[]>(buildPoints(this.snapshots, this.settings.groupIdentical));
+  pointIndex = $state(-1);
+  point = $derived<TimePoint | null>(this.points[this.pointIndex] ?? null);
+
+  /** Folder the user navigated to (names below the snapshot root). Moving in time keeps it. */
+  wantedPath = $state<string[]>([]);
+  /** How much of wantedPath exists in the shown snapshot. */
+  shownDepth = $state(0);
+  shownPath = $derived(this.wantedPath.slice(0, this.shownDepth));
+  entries = $state.raw<Entry[]>([]);
+  listing = $state(false);
+  listError = $state<ApiError | null>(null);
+  private back: string[][] = [];
+  private forward: string[][] = [];
+  canBack = $state(false);
+  canForward = $state(false);
+
+  search = $state("");
+  sortKey = $state<SortKey>("name");
+  sortAsc = $state(true);
+  selection = $state.raw<Set<string>>(new Set());
+  focusName = $state<string | null>(null);
+
+  private seq = 0;
+  private loadTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /**
+   * Sort keys, computed once per folder: normalized name (accents and case removed) for search,
+   * a "natural" key with zero-padded numbers (foto2 before foto10) and the extension for "Type".
+   * Comparing these plain strings is ~7× faster than Intl.Collator on 100k entries.
+   */
+  private keyed = $derived(
+    this.entries.map((e) => {
+      const n = normalize(e.name);
+      const dot = n.lastIndexOf(".");
+      return {
+        e,
+        n,
+        k: n.replace(/\d+/g, (d) => d.padStart(20, "0")),
+        t: e.kind === "d" || dot <= 0 ? "" : n.slice(dot + 1),
+        d: e.kind === "d" ? 0 : 1,
+      };
+    }),
+  );
+
+  /** Sorted once per folder/sort order; folders always first. */
+  private sorted = $derived.by(() => {
+    const sign = this.sortAsc ? 1 : -1;
+    const key = this.sortKey;
+    const str = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+    return this.keyed.slice().sort((a, b) => {
+      if (a.d !== b.d) return a.d - b.d;
+      let c = 0;
+      if (key === "mtime") c = (a.e.mtime ?? 0) - (b.e.mtime ?? 0);
+      else if (key === "size") c = a.e.size - b.e.size;
+      else if (key === "type") c = str(a.t, b.t);
+      return sign * (c || str(a.k, b.k));
+    });
+  });
+
+  /** Sorted entries matching the search (typing only filters, it never re-sorts). */
+  visible = $derived.by(() => {
+    const q = normalize(this.search.trim());
+    const list = q ? this.sorted.filter((x) => x.n.includes(q)) : this.sorted;
+    return list.map((x) => x.e);
+  });
+
+  selectedSize = $derived.by(() => {
+    let total = 0;
+    for (const e of this.entries) if (this.selection.has(e.name)) total += e.size;
+    return total;
+  });
+
+  resolvedTheme = $derived<"light" | "dark">(
+    this.settings.theme === "system" ? (this.systemDark ? "dark" : "light") : this.settings.theme,
+  );
+
+  async init() {
+    this.api = await loadApi();
+    this.isMock = !("__TAURI_INTERNALS__" in window);
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    this.systemDark = mq.matches;
+    mq.addEventListener("change", (e) => (this.systemDark = e.matches));
+
+    this.settings = await this.api.loadSettings();
+    this.applyPreferences();
+    const s = this.settings;
+    if (s.server && s.user && s.fingerprint) {
+      await this.connect({ server: s.server, user: s.user, fingerprint: s.fingerprint, password: null, remember: false });
+    } else {
+      this.screen = "connect";
+    }
+  }
+
+  applyPreferences() {
+    i18n.locale = resolveLocale(this.settings.language);
+    document.documentElement.lang = i18n.locale;
+    document.documentElement.dataset.theme = this.resolvedTheme;
+    void this.api.setWindowTheme(this.settings.theme === "system" ? null : this.settings.theme).catch(() => {});
+  }
+
+  async saveSettings(patch: Partial<Settings>) {
+    this.settings = { ...this.settings, ...patch };
+    this.applyPreferences();
+    try {
+      await this.api.saveSettings(this.settings);
+    } catch {
+      /* settings are a convenience; failure to save is not fatal */
+    }
+  }
+
+  /** Returns true on success. Errors are stored in connectError / screen. */
+  async connect(request: ConnectRequest): Promise<boolean> {
+    this.connectError = null;
+    try {
+      this.connection = await this.api.connect(request);
+    } catch (e) {
+      const err = toApiError(e);
+      if (err.code === "certificate_mismatch" && request.fingerprint === this.settings.fingerprint && this.settings.fingerprint) {
+        this.presentedFingerprint = err.presented ?? "";
+        this.screen = "mismatch";
+      } else {
+        this.connectError = err.code === "password_required" ? null : err;
+        this.screen = "connect";
+      }
+      return false;
+    }
+    await this.saveSettings({ server: request.server, user: request.user, fingerprint: request.fingerprint });
+    this.screen = "main";
+    await this.loadSources();
+    return true;
+  }
+
+  /** After a certificate change: forget the trusted fingerprint and go back to the connect form. */
+  async retrustCertificate() {
+    await this.saveSettings({ fingerprint: "" });
+    this.presentedFingerprint = "";
+    this.screen = "connect";
+  }
+
+  async disconnect() {
+    await this.api.disconnect();
+    this.connection = null;
+    this.sources = [];
+    this.source = null;
+    this.snapshots = [];
+    this.entries = [];
+    this.screen = "connect";
+  }
+
+  async forgetPassword(): Promise<boolean> {
+    return this.api.forgetPassword(this.settings.server, this.settings.user);
+  }
+
+  async loadSources() {
+    try {
+      this.sources = await this.api.listSources();
+    } catch (e) {
+      this.listError = toApiError(e);
+      return;
+    }
+    const last = this.sources.find((s) => sourceKey(s) === this.settings.lastSource);
+    const first = last ?? this.sources[0];
+    if (first) await this.selectSource(first);
+  }
+
+  async selectSource(source: Source) {
+    this.source = source;
+    void this.saveSettings({ lastSource: sourceKey(source) });
+    this.snapshots = [];
+    this.entries = [];
+    this.pointIndex = -1;
+    this.wantedPath = [];
+    this.shownDepth = 0;
+    this.back = [];
+    this.forward = [];
+    this.updateHistoryFlags();
+    this.search = "";
+    this.selection = new Set();
+    this.snapshotsLoading = true;
+    this.listError = null;
+    try {
+      this.snapshots = await this.api.listSnapshots(source);
+    } catch (e) {
+      this.listError = toApiError(e);
+    } finally {
+      this.snapshotsLoading = false;
+    }
+    this.pointIndex = this.points.length - 1;
+    // Development only (mock backend): start in ?path=a/b and at ?point=<index>.
+    if (this.isMock) {
+      const q = new URLSearchParams(location.search);
+      if (q.get("path")) this.wantedPath = q.get("path")!.split("/").filter(Boolean);
+      if (q.get("point")) this.pointIndex = Math.min(this.points.length - 1, Number(q.get("point")));
+    }
+    await this.loadListing();
+  }
+
+  /** Select a point on the timeline. Rapid changes (scrubbing) are coalesced. */
+  setPoint(index: number, immediate = false) {
+    if (index < 0 || index >= this.points.length || index === this.pointIndex) return;
+    this.pointIndex = index;
+    clearTimeout(this.loadTimer);
+    if (immediate) void this.loadListing();
+    else this.loadTimer = setTimeout(() => void this.loadListing(), 140);
+  }
+
+  setGrouping(group: boolean) {
+    const time = this.point?.time ?? Date.now();
+    void this.saveSettings({ groupIdentical: group });
+    this.pointIndex = indexNearest(this.points, time);
+  }
+
+  async loadListing() {
+    const point = this.point;
+    if (!point) {
+      this.entries = [];
+      return;
+    }
+    const seq = ++this.seq;
+    this.listing = true;
+    this.listError = null;
+    try {
+      const r = await this.api.openPath(point.snapshot.rootId, this.wantedPath);
+      if (seq !== this.seq) return; // a newer request superseded this one
+      this.entries = r.entries;
+      this.shownDepth = r.depth;
+      const names = new Set(r.entries.map((e) => e.name));
+      this.selection = new Set([...this.selection].filter((n) => names.has(n)));
+      if (this.focusName && !names.has(this.focusName)) this.focusName = null;
+    } catch (e) {
+      if (seq !== this.seq) return;
+      this.listError = toApiError(e);
+      this.entries = [];
+    } finally {
+      if (seq === this.seq) this.listing = false;
+    }
+  }
+
+  /** Manual navigation: replaces the wanted path. */
+  navigate(path: string[], record = true) {
+    if (record) {
+      this.back.push(this.shownPath);
+      this.forward = [];
+    }
+    this.wantedPath = path;
+    this.search = "";
+    this.selection = new Set();
+    this.focusName = null;
+    this.updateHistoryFlags();
+    void this.loadListing();
+  }
+
+  open(entry: Entry) {
+    if (entry.kind === "d") this.navigate([...this.shownPath, entry.name]);
+  }
+
+  up() {
+    if (this.shownPath.length > 0) {
+      const child = this.shownPath[this.shownPath.length - 1];
+      this.navigate(this.shownPath.slice(0, -1));
+      this.focusName = child;
+      this.selection = new Set([child]);
+    }
+  }
+
+  goBack() {
+    const p = this.back.pop();
+    if (!p) return;
+    this.forward.push(this.shownPath);
+    this.navigate(p, false);
+  }
+
+  goForward() {
+    const p = this.forward.pop();
+    if (!p) return;
+    this.back.push(this.shownPath);
+    this.navigate(p, false);
+  }
+
+  private updateHistoryFlags() {
+    this.canBack = this.back.length > 0;
+    this.canForward = this.forward.length > 0;
+  }
+
+  sortBy(key: SortKey) {
+    if (this.sortKey === key) this.sortAsc = !this.sortAsc;
+    else {
+      this.sortKey = key;
+      this.sortAsc = key === "name" || key === "type";
+    }
+  }
+}
+
+export const app = new AppStore();

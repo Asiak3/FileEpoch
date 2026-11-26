@@ -1,0 +1,147 @@
+// Interface between the UI and the Rust backend (src-tauri/src/commands.rs).
+// Outside Tauri (plain browser during development) a mock backend is loaded instead.
+
+export type Language = "auto" | "es" | "de" | "en";
+export type Theme = "system" | "light" | "dark";
+
+export interface Settings {
+  server: string;
+  user: string;
+  fingerprint: string;
+  language: Language;
+  theme: Theme;
+  groupIdentical: boolean;
+  lastSource: string;
+}
+
+export interface Source {
+  host: string;
+  userName: string;
+  path: string;
+}
+
+export interface Snapshot {
+  id: string;
+  /** RFC 3339, UTC. */
+  startTime: string;
+  endTime: string | null;
+  rootId: string;
+  incomplete: string | null;
+  files: number;
+  size: number;
+  retention: string[];
+  pins: string[];
+  description: string;
+}
+
+export type EntryKind = "f" | "d" | "s" | "?";
+
+export interface Entry {
+  name: string;
+  kind: EntryKind;
+  size: number;
+  /** Milliseconds since the epoch (UTC). */
+  mtime: number | null;
+  obj: string;
+  files?: number;
+}
+
+export interface Listing {
+  /** How many components of the requested path exist in this snapshot. */
+  depth: number;
+  entries: Entry[];
+}
+
+export interface CertInfo {
+  hex: string;
+  colon: string;
+}
+
+export interface ConnectRequest {
+  server: string;
+  user: string;
+  fingerprint: string;
+  /** null: use the password saved in the system credential store. */
+  password: string | null;
+  remember: boolean;
+}
+
+export interface ConnectResult {
+  version: string | null;
+  testedVersions: string[];
+  untestedVersion: boolean;
+  readonly: boolean;
+  description: string;
+}
+
+export type ErrorCode =
+  | "invalid_server"
+  | "invalid_fingerprint"
+  | "certificate_mismatch"
+  | "connection"
+  | "access_denied"
+  | "not_ui_user"
+  | "session"
+  | "server_not_connected"
+  | "not_found"
+  | "incompatible"
+  | "credential_store"
+  | "password_required"
+  | "saved_password_rejected"
+  | "not_connected_app"
+  | "other";
+
+export interface ApiError {
+  code: ErrorCode;
+  message: string;
+  presented?: string;
+}
+
+export interface Api {
+  loadSettings(): Promise<Settings>;
+  saveSettings(settings: Settings): Promise<void>;
+  probeCertificate(server: string): Promise<CertInfo>;
+  connect(request: ConnectRequest): Promise<ConnectResult>;
+  disconnect(): Promise<void>;
+  forgetPassword(server: string, user: string): Promise<boolean>;
+  listSources(): Promise<Source[]>;
+  listSnapshots(source: Source): Promise<Snapshot[]>;
+  openPath(root: string, path: string[]): Promise<Listing>;
+  setWindowTheme(theme: "light" | "dark" | null): Promise<void>;
+}
+
+export function isApiError(e: unknown): e is ApiError {
+  return typeof e === "object" && e !== null && "code" in e && "message" in e;
+}
+
+export function toApiError(e: unknown): ApiError {
+  if (isApiError(e)) return e;
+  return { code: "other", message: e instanceof Error ? e.message : String(e) };
+}
+
+export function sourceKey(s: Source): string {
+  return `${s.userName}@${s.host}:${s.path}`;
+}
+
+async function tauriApi(): Promise<Api> {
+  const { invoke } = await import("@tauri-apps/api/core");
+  const { getCurrentWindow } = await import("@tauri-apps/api/window");
+  return {
+    loadSettings: () => invoke("load_settings"),
+    saveSettings: (settings) => invoke("save_settings", { settings }),
+    probeCertificate: (server) => invoke("probe_certificate", { server }),
+    connect: (request) => invoke("connect", { request }),
+    disconnect: () => invoke("disconnect"),
+    forgetPassword: (server, user) => invoke("forget_password", { server, user }),
+    listSources: () => invoke("list_sources"),
+    listSnapshots: (source) => invoke("list_snapshots", { source }),
+    openPath: (root, path) => invoke("open_path", { root, path }),
+    setWindowTheme: (theme) => getCurrentWindow().setTheme(theme),
+  };
+}
+
+export async function loadApi(): Promise<Api> {
+  if ("__TAURI_INTERNALS__" in window) return tauriApi();
+  const { mockApi } = await import("./mock");
+  return mockApi();
+}
