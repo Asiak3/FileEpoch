@@ -57,12 +57,14 @@ class Thumbs {
       this.running++;
       app.api
         .thumbnail(oid)
-        .catch(() => null)
         .then((url) => {
+          // null = not an image the backend can read: remembered. Errors (network, reconnecting)
+          // are not cached, so the item tries again the next time it is on screen.
           if (gen !== this.generation) return;
           this.cache.set(oid, url);
           while (this.cache.size > CACHE_ENTRIES) this.cache.delete(this.cache.keys().next().value!);
         })
+        .catch(() => {})
         .finally(() => {
           this.running--;
           this.pump();

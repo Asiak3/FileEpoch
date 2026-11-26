@@ -199,12 +199,18 @@
   /** "434,6 GB · 215.266 archivos": the total size of the files in that version. */
   function sizeText(i: number): string {
     const s = points[i]?.snapshot;
-    return s ? t("version.size", { n: s.files, size: i18n.size(s.size) }) : "";
+    return s && known(i) ? t("version.size", { n: s.files, size: i18n.size(s.size) }) : "";
+  }
+
+  /** Incomplete versions (or ones without a summary) have no meaningful total. */
+  function known(i: number): boolean {
+    const s = points[i]?.snapshot;
+    return !!s && !s.incomplete && (s.size > 0 || s.files > 0);
   }
 
   /** Change of the total size since the previous point ("+1,2 GB"), or "" when none. */
   function deltaText(i: number): string {
-    if (i <= 0 || !points[i]) return "";
+    if (i <= 0 || !known(i) || !known(i - 1)) return "";
     const d = points[i].snapshot.size - points[i - 1].snapshot.size;
     if (d === 0) return "";
     return `${d > 0 ? "+" : "−"}${i18n.size(Math.abs(d))}`;
@@ -262,14 +268,16 @@
               · <em>{t("timeline.incomplete")}</em>
             {/if}
           </span>
-          <span class="size">
-            {sizeText(index)}
-            {#if deltaText(index)}<span class="delta">({deltaText(index)})</span>{/if}
-          </span>
+          {#if sizeText(index)}
+            <span class="size">
+              {sizeText(index)}
+              {#if deltaText(index)}<span class="delta">({deltaText(index)})</span>{/if}
+            </span>
+          {/if}
         </div>
       {/if}
       {#if hoverPoint && !dragging}
-        <div class="hover-tip" style:left="{hoverLeft}px" aria-hidden="true">{i18n.dateTime(hoverPoint.time)} · {i18n.size(hoverPoint.snapshot.size)}</div>
+        <div class="hover-tip" style:left="{hoverLeft}px" aria-hidden="true">{i18n.dateTime(hoverPoint.time)}{known(hover ?? -1) ? ` · ${i18n.size(hoverPoint.snapshot.size)}` : ""}</div>
       {/if}
 
       <div
