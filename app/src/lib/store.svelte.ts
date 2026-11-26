@@ -65,6 +65,7 @@ class AppStore {
     conflict: "rename",
     verify: true,
     lastRestoreDir: "",
+    thumbnails: true,
   });
 
   /** Saved column settings merged over the defaults (new columns appear, unknown ones vanish). */

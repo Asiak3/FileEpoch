@@ -4,6 +4,7 @@
 mod commands;
 mod restore_jobs;
 mod settings;
+mod thumbnails;
 
 use tauri::Manager;
 
@@ -11,6 +12,7 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(commands::AppState::default())
+        .manage(thumbnails::Thumbnails::default())
         .setup(|app| {
             let manager = restore_jobs::RestoreManager::start(app.handle());
             app.manage(manager);
@@ -33,6 +35,7 @@ fn main() {
             restore_jobs::cancel_restore,
             restore_jobs::clear_restores,
             restore_jobs::open_restore_folder,
+            thumbnails::thumbnail,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Rewind");

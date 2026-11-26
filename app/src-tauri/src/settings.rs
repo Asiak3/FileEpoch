@@ -35,6 +35,8 @@ pub struct Settings {
     pub verify: bool,
     /// Folder offered first by the destination picker.
     pub last_restore_dir: String,
+    /// Show image thumbnails in the icon views (downloads the images).
+    pub thumbnails: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -62,6 +64,7 @@ impl Default for Settings {
             conflict: "rename".into(),
             verify: true,
             last_restore_dir: String::new(),
+            thumbnails: true,
         }
     }
 }

@@ -170,6 +170,7 @@ export function mockApi(): Api {
     conflict: (params.get("conflict") as Settings["conflict"]) ?? "rename",
     verify: true,
     lastRestoreDir: "",
+    thumbnails: true,
   };
   const sourceIndex = Number(params.get("source") ?? "1");
   settings.lastSource = `${sources[sourceIndex].userName}@${sources[sourceIndex].host}:${sources[sourceIndex].path}`;
@@ -358,6 +359,19 @@ export function mockApi(): Api {
       for (let i = jobs.length - 1; i >= 0; i--) if (jobs[i].state !== "running" && jobs[i].state !== "queued") jobs.splice(i, 1);
     },
     async openRestoreFolder() {},
+    async thumbnail(oid) {
+      // A made-up "photo" (sky, sun, hills) whose colours depend on the object id.
+      await new Promise((r) => setTimeout(r, 150 + Math.random() * 400));
+      let h = 0;
+      for (const c of oid) h = (h * 31 + c.charCodeAt(0)) % 360;
+      const wide = h % 3 !== 0;
+      const [w, ht] = wide ? [192, 128] : [128, 170];
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${ht}" viewBox="0 0 ${w} ${ht}">
+<defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="hsl(${h},70%,72%)"/><stop offset="1" stop-color="hsl(${(h + 40) % 360},70%,88%)"/></linearGradient></defs>
+<rect width="${w}" height="${ht}" fill="url(#s)"/><circle cx="${w * 0.72}" cy="${ht * 0.3}" r="${ht * 0.12}" fill="hsl(${(h + 60) % 360},90%,92%)"/>
+<path d="M0 ${ht * 0.75} Q${w * 0.3} ${ht * 0.45} ${w * 0.55} ${ht * 0.7} T${w} ${ht * 0.6} V${ht} H0z" fill="hsl(${(h + 120) % 360},35%,38%)"/></svg>`;
+      return `data:image/svg+xml;base64,${btoa(svg)}`;
+    },
     async onRestoreProgress(callback) {
       listeners.push(callback);
       return () => listeners.splice(listeners.indexOf(callback), 1);

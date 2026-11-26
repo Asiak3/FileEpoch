@@ -77,6 +77,11 @@
         </select>
       </div>
 
+      <label class="check">
+        <input type="checkbox" checked={app.settings.thumbnails} onchange={(e) => app.saveSettings({ thumbnails: e.currentTarget.checked })} />
+        <span>{t("settings.thumbnails")}</span>
+      </label>
+
       <fieldset class="restore">
         <legend class="label"><Icon name="restore" size={15} /> {t("settings.restore")}</legend>
         <label class="row stack">

@@ -71,7 +71,9 @@ Using it:
   the path appears struck through); move to a time where it exists and you are back in it.
 - **Views:** details, list, large icons and tiles. In details, drag a column separator to resize
   it and right-click the header to show or hide columns (date, type, size, files, permissions,
-  owner).
+  owner). Large icons and tiles show thumbnails of images (JPEG, PNG, GIF, WebP, BMP, TIFF up to
+  64 MB): each image is downloaded and shrunk in memory, only while it is on screen, and nothing is
+  saved to disk. They can be switched off in the settings menu.
 - **Restoring:** select items and press *Restore* (or right-click → *Restore…*); with nothing
   selected the button restores the folder you are looking at (right-click on empty space does the
   same). Rewind asks for the destination folder every time. Restores run one after another in the

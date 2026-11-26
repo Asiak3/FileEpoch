@@ -4,6 +4,7 @@
   import { i18n, t } from "../i18n.svelte";
   import { category, extension } from "../filetypes";
   import FileIcon from "./FileIcon.svelte";
+  import Thumb from "./Thumb.svelte";
   import Icon from "./Icon.svelte";
   import ContextMenu, { type MenuItem } from "./ContextMenu.svelte";
 
@@ -18,7 +19,7 @@
   const geometry: Record<ViewMode, { rowH: number; cellW: number; icon: number }> = {
     details: { rowH: 34, cellW: 0, icon: 20 },
     list: { rowH: 30, cellW: 0, icon: 18 },
-    icons: { rowH: 128, cellW: 118, icon: 56 },
+    icons: { rowH: 136, cellW: 118, icon: 56 },
     tiles: { rowH: 72, cellW: 300, icon: 40 },
   };
 
@@ -509,10 +510,10 @@
               <span class="name" title={entry.name}>{entry.name}</span>
             </span>
           {:else if mode === "icons"}
-            <FileIcon category={category(entry)} size={geo.icon} />
+            <Thumb {entry} width={100} height={76} icon={geo.icon} />
             <span class="label" title={entry.name}>{entry.name}</span>
           {:else}
-            <FileIcon category={category(entry)} size={geo.icon} />
+            <Thumb {entry} width={52} height={52} icon={geo.icon} />
             <span class="tile-text">
               <span class="name" title={entry.name}>{entry.name}</span>
               <span class="meta">{typeLabel(entry)}</span>
@@ -802,13 +803,13 @@
   /* large icons */
   .view-icons .item {
     width: 112px;
-    height: 122px;
+    height: 130px;
     margin: 3px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 6px;
-    padding: 10px 6px 6px;
+    padding: 8px 6px 6px;
     text-align: center;
   }
 

@@ -35,6 +35,8 @@ export interface Settings {
   conflict: "rename" | "skip" | "overwrite";
   verify: boolean;
   lastRestoreDir: string;
+  /** Image thumbnails in the icon views (the images are downloaded for that). */
+  thumbnails: boolean;
 }
 
 export interface Source {
@@ -193,6 +195,8 @@ export interface Api {
   cancelRestore(id: number): Promise<void>;
   clearRestores(): Promise<void>;
   openRestoreFolder(id: number): Promise<void>;
+  /** Small data URL of an image file, or null when it cannot be shown. */
+  thumbnail(oid: string): Promise<string | null>;
   /** Subscribes to job updates; returns an unsubscribe function. */
   onRestoreProgress(callback: (job: RestoreJob) => void): Promise<() => void>;
 }
@@ -232,6 +236,7 @@ async function tauriApi(): Promise<Api> {
     cancelRestore: (id) => invoke("cancel_restore", { id }),
     clearRestores: () => invoke("clear_restores"),
     openRestoreFolder: (id) => invoke("open_restore_folder", { id }),
+    thumbnail: (oid) => invoke("thumbnail", { oid }),
     onRestoreProgress: (callback) => listen<RestoreJob>("restore-progress", (e) => callback(e.payload)),
   };
 }
