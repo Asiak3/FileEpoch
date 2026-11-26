@@ -5,8 +5,9 @@ Rewind connects to a Kopia web server (ideally one started with `--readonly`), l
 through snapshots on a timeline, browse files as they were, and restore them **to your own
 computer**.
 
-> **Status: early development.** The API client library and a command-line test tool work
-> against Kopia 0.23.1. The desktop app (Tauri) is not written yet.
+> **Status: early development.** Browsing works: connect, pick a source, move along the
+> timeline and explore folders. Restoring from the app comes next (the command-line tool can
+> already download single files).
 
 ## Safety by design
 
@@ -39,6 +40,39 @@ cargo build --release
 cargo test
 ```
 
+## Desktop app
+
+Requirements in addition to Rust: Node.js 20 or newer. On Windows, WebView2 (included in
+Windows 10/11).
+
+```sh
+cd app
+npm install
+npm run tauri dev      # development, with hot reload
+npm run tauri build    # optimized build: target/release/rewind-app.exe
+```
+
+On first start Rewind asks for the server address and user, shows the server certificate
+fingerprint for you to compare with the Kopia server log, and asks for the password (optionally
+saved in the system credential store). A password saved with `rewind-cli --save-password` is used
+by the app too.
+
+Using it:
+
+- **Timeline** (top): click or drag to move through time; arrow keys, Home/End and PgUp/PgDn work
+  when it has focus. Consecutive snapshots with identical content are grouped ("unchanged until …");
+  switch off *Group identical* to see each one.
+- **Files** (below): double-click or Enter opens a folder, Backspace goes up, Alt+←/→ go back and
+  forward, Ctrl+F searches the current folder, Ctrl/Shift+click selects several items.
+- **Staying in the folder while moving in time:** Rewind remembers the folder you opened. If it does
+  not exist at the selected time, the nearest existing parent folder is shown (the missing part of
+  the path appears struck through); move to a time where it exists and you are back in it.
+- All times are shown in your local time zone. Languages: English, Spanish, German.
+
+To work on the user interface without a Kopia server, `npm run dev` serves it at
+http://127.0.0.1:1420 with a mock backend (sample data, password `demo`). URL parameters such as
+`?lang=de&theme=dark&source=2` select the sample; see `app/src/lib/mock.ts`.
+
 ## Command-line tool
 
 `rewind-cli` exercises the client library. Connection settings can be passed as options or
@@ -67,6 +101,7 @@ Times are shown in your local time zone. `download` writes `file (restored <snap
 |--------------------------|----------|
 | `crates/kopia-client`    | Read-only Kopia API client library (TLS pinning, session/CSRF handling, restore) |
 | `crates/rewind-cli`      | Command-line test tool |
+| `app/`                   | Desktop app: Svelte 5 user interface (`src/`) and Tauri 2 backend (`src-tauri/`) |
 | `docs/API.md`            | Kopia web API notes: endpoints, authentication, what is forbidden and why |
 | `tools/verify-api.ps1`   | Checks the documented API against a live server (read-only) |
 | `tools/anonymize-samples.py` | Turns recorded responses into anonymized test fixtures |

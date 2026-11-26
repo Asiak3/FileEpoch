@@ -242,6 +242,10 @@ Notes:
 - Consequence for the timeline: a group of identical snapshots is shown with the date of the first
   one ("content unchanged since…"). To also show "until…", the app requests `all=1` and groups by
   `rootID` itself (cheap: same list).
+- **Rewind's grouping deliberately differs:** the server groups by `rootID` over the whole list,
+  so a return to earlier content (A → B → A) collapses into two entries and the timeline would
+  jump back in time. Rewind always requests `all=1` and groups only **consecutive** snapshots with
+  the same `rootID` (A → B → A gives three points), each showing "unchanged until <last>".
 
 ```json
 {
