@@ -25,7 +25,6 @@
   let viewport: HTMLDivElement | undefined = $state();
   let height = $state(0);
   let width = $state(0);
-  let outerWidth = $state(0);
   let header: HTMLDivElement | undefined = $state();
   let scrollTop = $state(0);
   let anchor: string | null = null;
@@ -54,8 +53,7 @@
   let fixed = $derived(columns.map((c) => `${c.width}px`).join(" "));
   let template = $derived(nameWidth === null ? `minmax(${NAME_MIN}px, 1fr) ${fixed}` : `${nameWidth}px ${fixed} minmax(0, 1fr)`);
   let minWidth = $derived((nameWidth ?? NAME_MIN) + columns.reduce((a, c) => a + c.width, 0) + 20);
-  /** Width of the vertical scrollbar, so the header lines up with the rows. */
-  let scrollbar = $derived(Math.max(0, outerWidth - width));
+
 
   const columnLabel: Record<ColumnId, string> = {
     mtime: "list.modified",
@@ -439,7 +437,6 @@
     <div
       class="header"
       bind:this={header}
-      style:padding-right="{6 + scrollbar}px"
       role="toolbar"
       aria-label={t("menu.columns")}
       tabindex="-1"
@@ -465,7 +462,6 @@
     bind:this={viewport}
     bind:clientHeight={height}
     bind:clientWidth={width}
-    bind:offsetWidth={outerWidth}
     onscroll={() => {
       scrollTop = viewport?.scrollTop ?? 0;
       if (header && viewport) header.scrollLeft = viewport.scrollLeft;
@@ -609,10 +605,12 @@
     font-size: 13px;
   }
 
+  /* Both reserve the same scrollbar gutter, so the header lines up with the rows. */
   .header {
     flex: none;
     overflow: hidden;
-    padding-left: 6px;
+    scrollbar-gutter: stable;
+    padding: 0 6px;
   }
 
   .header-row {
@@ -702,8 +700,8 @@
     position: relative;
     flex: 1;
     min-height: 0;
-    overflow-y: auto;
-    overflow-x: auto;
+    overflow: auto;
+    scrollbar-gutter: stable;
     outline: none;
     padding: 4px 6px 8px;
   }
