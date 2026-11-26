@@ -822,7 +822,10 @@ mod tests {
         let time = Local.with_ymd_and_hms(2026, 11, 25, 19, 0, 0).unwrap();
         let naming = Naming::Suffix { label: "version of".into(), date: SuffixDate::Snapshot(time) };
         assert_eq!(restored_name("report.pdf", false, None, &naming), "report (version of 2026-11-25 19h00).pdf");
-        assert_eq!(restored_name("archive.tar.gz", false, None, &naming), "archive.tar (version of 2026-11-25 19h00).gz");
+        assert_eq!(
+            restored_name("archive.tar.gz", false, None, &naming),
+            "archive.tar (version of 2026-11-25 19h00).gz"
+        );
         assert_eq!(restored_name(".bashrc", false, None, &naming), ".bashrc (version of 2026-11-25 19h00)");
         assert_eq!(restored_name("v1.2", true, None, &naming), "v1.2 (version of 2026-11-25 19h00)");
         assert_eq!(restored_name("x.pdf", false, None, &Naming::Original), "x.pdf");
