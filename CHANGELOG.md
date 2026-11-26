@@ -5,7 +5,9 @@ and versions follow [Semantic Versioning](https://semver.org/) (0.x while in bet
 
 ## [Unreleased]
 
-First public beta (0.1.0), not released yet.
+## [0.1.0] - 2026-11-26
+
+First beta.
 
 ### Added
 - Connect to a Kopia web server with a pinned TLS certificate fingerprint; the password is kept
