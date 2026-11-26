@@ -39,8 +39,8 @@ pub struct Settings {
     pub thumbnails: bool,
     /// Keep running in the system tray when the window is closed.
     pub tray: bool,
-    /// Look of the timeline: `classic` or `glass` (a trial).
-    pub timeline_style: String,
+    /// Look of the timeline: `glass` (default) or `simple`.
+    pub timeline: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,7 +70,7 @@ impl Default for Settings {
             last_restore_dir: String::new(),
             thumbnails: true,
             tray: false,
-            timeline_style: "classic".into(),
+            timeline: "glass".into(),
         }
     }
 }

@@ -169,8 +169,8 @@
             <div class="field">
               <span class="flabel" id="tl-label">{t("settings.timelineStyle")}</span>
               <div class="segmented two" role="radiogroup" aria-labelledby="tl-label">
-                {#each ["classic", "glass"] as const as st (st)}
-                  <button role="radio" aria-checked={app.settings.timelineStyle === st} onclick={() => app.saveSettings({ timelineStyle: st })}>
+                {#each ["glass", "simple"] as const as st (st)}
+                  <button role="radio" aria-checked={app.settings.timeline === st} onclick={() => app.saveSettings({ timeline: st })}>
                     {t(`settings.timelineStyle.${st}`)}
                   </button>
                 {/each}

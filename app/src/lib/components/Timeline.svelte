@@ -599,7 +599,7 @@
     font-weight: 600;
   }
 
-  /* --- "glass" style (trial): frosted, rounded surfaces in the spirit of macOS ------------- */
+  /* --- "glass" style (default): frosted, rounded surfaces in the spirit of macOS ----------- */
   :global(.glass) .timeline {
     --g-surface: rgba(255, 255, 255, 0.52);
     --g-strong: rgba(255, 255, 255, 0.78);
@@ -607,7 +607,7 @@
     --g-line: rgba(60, 60, 67, 0.16);
     --g-tick: rgba(60, 60, 67, 0.28);
     --g-tick-major: rgba(60, 60, 67, 0.55);
-    --g-shadow: 0 8px 28px rgba(30, 40, 80, 0.14), 0 1px 3px rgba(30, 40, 80, 0.08);
+    --g-shadow: 0 8px 28px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.07);
   }
 
   :global([data-theme="dark"] .glass) .timeline {
@@ -661,7 +661,7 @@
     box-shadow:
       0 0 0 0.5px rgba(0, 0, 0, 0.18),
       0 2px 6px rgba(0, 0, 0, 0.22),
-      0 6px 16px rgba(30, 60, 140, 0.18);
+      0 6px 16px rgba(15, 23, 42, 0.14);
   }
 
   :global(.glass) .thumb::after {
@@ -724,7 +724,7 @@
   }
 
   :global(.glass) .switch input:checked + .knob {
-    background: #34c759;
+    background: var(--accent);
   }
 
   :global(.glass) .switch input:checked + .knob::after {

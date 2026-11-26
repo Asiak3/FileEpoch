@@ -90,7 +90,7 @@
       </div>
     {/if}
 
-    <div class="timeline-band" class:glass={app.settings.timelineStyle === "glass"}>
+    <div class="timeline-band" class:glass={app.settings.timeline === "glass"}>
       <Timeline />
     </div>
 
@@ -232,22 +232,23 @@
     flex: none;
   }
 
-  /* Trial "glass" timeline: soft colour behind frosted surfaces (see Timeline.svelte). */
+  /* "Glass" timeline (default): neutral frosted surfaces over a barely tinted backdrop
+     (see Timeline.svelte). */
   .timeline-band.glass {
-    border-color: rgba(255, 255, 255, 0.55);
+    border-color: rgba(255, 255, 255, 0.6);
     background:
-      radial-gradient(90% 160% at 8% 0%, rgba(96, 165, 250, 0.32), transparent 62%),
-      radial-gradient(80% 160% at 92% 100%, rgba(167, 139, 250, 0.3), transparent 60%),
-      radial-gradient(60% 120% at 55% 40%, rgba(45, 212, 191, 0.14), transparent 70%),
+      radial-gradient(90% 160% at 10% 0%, rgba(255, 255, 255, 0.85), transparent 60%),
+      radial-gradient(80% 160% at 90% 100%, rgba(148, 163, 184, 0.2), transparent 62%),
+      linear-gradient(135deg, rgba(10, 98, 201, 0.04), rgba(100, 116, 139, 0.06)),
       var(--bg-elev);
   }
 
   :global([data-theme="dark"]) .timeline-band.glass {
-    border-color: rgba(255, 255, 255, 0.09);
+    border-color: rgba(255, 255, 255, 0.08);
     background:
-      radial-gradient(90% 160% at 8% 0%, rgba(59, 130, 246, 0.28), transparent 62%),
-      radial-gradient(80% 160% at 92% 100%, rgba(139, 92, 246, 0.26), transparent 60%),
-      radial-gradient(60% 120% at 55% 40%, rgba(20, 184, 166, 0.12), transparent 70%),
+      radial-gradient(90% 160% at 10% 0%, rgba(255, 255, 255, 0.06), transparent 60%),
+      radial-gradient(80% 160% at 90% 100%, rgba(148, 163, 184, 0.08), transparent 62%),
+      linear-gradient(135deg, rgba(76, 180, 255, 0.03), rgba(100, 116, 139, 0.05)),
       var(--bg-elev);
   }
 

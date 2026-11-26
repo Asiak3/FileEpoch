@@ -69,7 +69,7 @@ class AppStore {
     lastRestoreDir: "",
     thumbnails: true,
     tray: false,
-    timelineStyle: "classic",
+    timeline: "glass",
   });
 
   /** Saved column settings merged over the defaults (new columns appear, unknown ones vanish). */

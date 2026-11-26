@@ -80,7 +80,7 @@ Using it:
   background; the *Restores* panel shows progress, lets you cancel, and summarizes renamed items,
   skipped links and errors.
 - **Settings** (gear icon, top right) open in a window with tabs: System (language, tray, start
-  with Windows), Display (theme, timeline style, thumbnails), Restore, Connection and About.
+  with Windows), Display (theme, timeline style: glass or simple, thumbnails), Restore, Connection and About.
 - **Restore options** (settings, *Restore* tab): name restored items `report (version of 2026-11-25 03h02).pdf`
   (date of the snapshot), `report (modified 2026-11-24 16h46).pdf` (the file's own modification
   date) or keep the original name; the menu shows an example from the current folder. If an item already

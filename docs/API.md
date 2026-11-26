@@ -464,14 +464,11 @@ commit them without anonymizing.
 1. **Not yet exercised live:** the `Access denied.` 401 (wrong password; deliberately not tested, it
    writes a failed-login entry to the server log), the 403 for a non-UI user, behaviour after a
    server restart (CSRF re-bootstrap), and a very large directory.
-2. **Data freshness.** Sources are only recomputed on each server *refresh*
-   (`--refresh-interval`, 4 h by default). Snapshot lists are read on demand, but the repository
-   index may be cached. Do new snapshots show up without calling `POST /api/v1/repo/sync`? The
-   first live run was inconclusive (a server refresh had happened after the newest snapshot). Rerun
-   `tools/verify-api.ps1` a few minutes after a scheduled snapshot: it prints `FRESHNESS: …` when the
-   snapshot list is ahead of the sources cache. If new snapshots do not appear, choose between
-   (a) whitelisting `POST /api/v1/repo/sync` (does not write to the repository, but is a POST and
-   triggers work on the server) or (b) recommending a shorter `--refresh-interval`.
+2. ~~**Data freshness.**~~ **Answered (2026-11-26, Kopia 0.23.1, read-only server):** new snapshots
+   show up in `GET /api/v1/snapshots` without calling `POST /api/v1/repo/sync`. The desktop app,
+   which never calls it, showed a scheduled snapshot shortly after it was taken. Only the
+   `lastSnapshot` field of `/api/v1/sources` lags behind (until the next server refresh), which is
+   why the app never uses it. `repo/sync` stays off the whitelist.
 3. **Unhandled errors in `handleObjectGet`.** If `OpenObject` fails with anything other than "not
    found", the code carries on with a nil object. Expect a 500 or a dropped connection; the client
    treats it as a recoverable error and retries once.
