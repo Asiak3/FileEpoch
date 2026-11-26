@@ -173,6 +173,7 @@ export function mockApi(): Api {
     lastRestoreDir: "",
     thumbnails: true,
     tray: false,
+    timelineStyle: (params.get("tl") as Settings["timelineStyle"]) ?? "classic",
   };
   const sourceIndex = Number(params.get("source") ?? "1");
   settings.lastSource = `${sources[sourceIndex].userName}@${sources[sourceIndex].host}:${sources[sourceIndex].path}`;

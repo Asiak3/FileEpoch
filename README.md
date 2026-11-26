@@ -73,21 +73,24 @@ Using it:
   it and right-click the header to show or hide columns (date, type, size, files, permissions,
   owner). Large icons and tiles show thumbnails of images (JPEG, PNG, GIF, WebP, BMP, TIFF up to
   64 MB): each image is downloaded and shrunk in memory, only while it is on screen, and nothing is
-  saved to disk. They can be switched off in the settings menu.
+  saved to disk. They can be switched off in the settings.
 - **Restoring:** select items and press *Restore* (or right-click → *Restore…*); with nothing
   selected the button restores the folder you are looking at (right-click on empty space does the
   same). Rewind asks for the destination folder every time. Restores run one after another in the
   background; the *Restores* panel shows progress, lets you cancel, and summarizes renamed items,
   skipped links and errors.
-- **Restore options** (settings menu): name restored items `report (version of 2026-11-25 03h02).pdf`
+- **Settings** (gear icon, top right) open in a window with tabs: System (language, tray, start
+  with Windows), Display (theme, timeline style, thumbnails), Restore, Connection and About.
+- **Restore options** (settings, *Restore* tab): name restored items `report (version of 2026-11-25 03h02).pdf`
   (date of the snapshot), `report (modified 2026-11-24 16h46).pdf` (the file's own modification
   date) or keep the original name; the menu shows an example from the current folder. If an item already
   exists, keep both (default), skip it, or overwrite it — overwriting always asks first and lists
   what would be replaced. Optionally verify size and date of every restored file.
-- **Tray and start with Windows** (settings menu, both off by default): closing the window can keep
+- **Tray and start with Windows** (settings, *System* tab; both off by default): closing the window can keep
   Rewind running next to the clock (click the icon to open it; *Quit* in its menu). Started with
   Windows and with the tray option on, it starts hidden in the tray. Quitting while a restore runs
-  asks first. The list of versions is reloaded every few minutes while Rewind is open.
+  asks first. The list of versions is reloaded every 5 minutes and when the window gets focus; the
+  round arrow next to the number of versions checks right away (its tooltip shows the last check).
 - All times are shown in your local time zone. Languages: English, Spanish, German.
 
 To work on the user interface without a Kopia server, `npm run dev` serves it at

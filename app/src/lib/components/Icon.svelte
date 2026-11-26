@@ -37,6 +37,7 @@
     folder: "M2.5 5.5v10h15V7.5H9.5L8 5.5H2.5Z",
     trash: "M4 6h12M8 6V4h4v2M5.5 6l.8 10.5h7.4L14.5 6",
     stop: "M5 5h10v10H5z",
+    refresh: "M16.5 10a6.5 6.5 0 1 1-1.9-4.6M16.5 3v3.5H13",
     monitor: "M2.5 4h15v9.5h-15zM7 16.5h6M10 13.5v3",
     external: "M11 3.5h5.5V9M16.5 3.5 9 11M14.5 12v4.5h-11v-11H8",
     palette:

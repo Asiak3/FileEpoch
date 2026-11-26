@@ -236,6 +236,15 @@
         {#if app.snapshots.length > 1 && distinct < app.snapshots.length}
           <span class="muted">· {t("timeline.identical", { n: app.snapshots.length - distinct })}</span>
         {/if}
+        <button
+          class="refresh"
+          class:spinning={app.refreshing}
+          onclick={() => app.refreshSnapshots()}
+          title={app.refreshedAt ? t("timeline.refreshed", { time: i18n.time(app.refreshedAt) }) : t("timeline.refresh")}
+          aria-label={t("timeline.refresh")}
+        >
+          <Icon name="refresh" size={14} />
+        </button>
       {/if}
     </div>
     <label class="switch" title={t("app.groupHint")}>
@@ -343,6 +352,33 @@
     display: flex;
     align-items: center;
     gap: 7px;
+  }
+
+  .refresh {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    margin-left: 2px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-3);
+  }
+
+  .refresh:hover {
+    background: var(--hover);
+    color: var(--text);
+  }
+
+  .refresh.spinning :global(svg) {
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .muted {
@@ -561,6 +597,139 @@
   .label.strong {
     color: var(--text-2);
     font-weight: 600;
+  }
+
+  /* --- "glass" style (trial): frosted, rounded surfaces in the spirit of macOS ------------- */
+  :global(.glass) .timeline {
+    --g-surface: rgba(255, 255, 255, 0.52);
+    --g-strong: rgba(255, 255, 255, 0.78);
+    --g-edge: rgba(255, 255, 255, 0.75);
+    --g-line: rgba(60, 60, 67, 0.16);
+    --g-tick: rgba(60, 60, 67, 0.28);
+    --g-tick-major: rgba(60, 60, 67, 0.55);
+    --g-shadow: 0 8px 28px rgba(30, 40, 80, 0.14), 0 1px 3px rgba(30, 40, 80, 0.08);
+  }
+
+  :global([data-theme="dark"] .glass) .timeline {
+    --g-surface: rgba(255, 255, 255, 0.07);
+    --g-strong: rgba(48, 52, 62, 0.62);
+    --g-edge: rgba(255, 255, 255, 0.14);
+    --g-line: rgba(235, 235, 245, 0.14);
+    --g-tick: rgba(235, 235, 245, 0.26);
+    --g-tick-major: rgba(235, 235, 245, 0.5);
+    --g-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+
+  :global(.glass) .track-wrap {
+    border-radius: 16px;
+    background: var(--g-surface);
+    border: 1px solid var(--g-edge);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      0 1px 2px rgba(0, 0, 0, 0.04);
+    backdrop-filter: blur(22px) saturate(180%);
+  }
+
+  :global(.glass) .rail {
+    height: 3px;
+    border-radius: 2px;
+    background: var(--g-line);
+  }
+
+  :global(.glass) .tick {
+    width: 2px;
+    border-radius: 1px;
+    background: var(--g-tick);
+  }
+
+  :global(.glass) .tick.major {
+    background: var(--g-tick-major);
+  }
+
+  :global(.glass) .tick.hovered {
+    background: var(--accent);
+  }
+
+  /* A white capsule knob, like a macOS slider. */
+  :global(.glass) .thumb {
+    top: 6px;
+    width: 14px;
+    height: 32px;
+    margin-left: -7px;
+    border-radius: 7px;
+    background: linear-gradient(#ffffff, #eef1f6);
+    box-shadow:
+      0 0 0 0.5px rgba(0, 0, 0, 0.18),
+      0 2px 6px rgba(0, 0, 0, 0.22),
+      0 6px 16px rgba(30, 60, 140, 0.18);
+  }
+
+  :global(.glass) .thumb::after {
+    content: "";
+    position: absolute;
+    left: 5px;
+    right: 5px;
+    top: 9px;
+    bottom: 9px;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+
+  :global(.glass) .bubble {
+    padding: 7px 14px 8px;
+    border-radius: 14px;
+    background: var(--g-strong);
+    border: 1px solid var(--g-edge);
+    box-shadow: var(--g-shadow);
+    backdrop-filter: blur(24px) saturate(180%);
+  }
+
+  :global(.glass) .hover-tip {
+    padding: 3px 9px;
+    border-radius: 8px;
+    background: rgba(28, 28, 32, 0.72);
+    color: #fff;
+    backdrop-filter: blur(16px);
+  }
+
+  :global(.glass) .nav {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--g-surface);
+    border: 1px solid var(--g-edge);
+    backdrop-filter: blur(16px) saturate(180%);
+  }
+
+  :global(.glass) .knob {
+    width: 38px;
+    height: 22px;
+    border-radius: 11px;
+    border: none;
+    background: rgba(120, 120, 128, 0.32);
+  }
+
+  :global(.glass) .knob::after {
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+
+  :global(.glass) .switch input {
+    width: 38px;
+    height: 22px;
+  }
+
+  :global(.glass) .switch input:checked + .knob {
+    background: #34c759;
+  }
+
+  :global(.glass) .switch input:checked + .knob::after {
+    transform: translateX(16px);
+    background: #fff;
   }
 
   .empty {

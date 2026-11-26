@@ -69,6 +69,7 @@ class AppStore {
     lastRestoreDir: "",
     thumbnails: true,
     tray: false,
+    timelineStyle: "classic",
   });
 
   /** Saved column settings merged over the defaults (new columns appear, unknown ones vanish). */
@@ -135,7 +136,9 @@ class AppStore {
   /** Starts with the operating system (read from the system). */
   autostart = $state(false);
   private trayKey = "";
-  private lastRefresh = 0;
+  /** When the list of versions was last loaded (ms), and whether it is being reloaded. */
+  refreshedAt = $state(0);
+  refreshing = $state(false);
 
   /**
    * Sort keys, computed once per folder: normalized name (accents and case removed) for search,
@@ -206,7 +209,7 @@ class AppStore {
     // and when the window comes back.
     setInterval(() => void this.refreshSnapshots(), REFRESH_MS);
     window.addEventListener("focus", () => {
-      if (Date.now() - this.lastRefresh > 60_000) void this.refreshSnapshots();
+      if (Date.now() - this.refreshedAt > 60_000) void this.refreshSnapshots();
     });
     await this.api.onRestoreProgress((job) => this.upsertJob(job));
     this.jobs = (await this.api.listRestores()).reverse();
@@ -327,6 +330,7 @@ class AppStore {
     this.listError = null;
     try {
       this.snapshots = await this.api.listSnapshots(source);
+      this.refreshedAt = Date.now();
     } catch (e) {
       this.listError = toApiError(e);
     } finally {
@@ -348,13 +352,16 @@ class AppStore {
    */
   async refreshSnapshots() {
     const source = this.source;
-    if (this.screen !== "main" || !source || this.snapshotsLoading) return;
-    this.lastRefresh = Date.now();
+    if (this.screen !== "main" || !source || this.snapshotsLoading || this.refreshing) return;
     let fresh: Snapshot[];
+    this.refreshing = true;
     try {
       fresh = await this.api.listSnapshots(source);
+      this.refreshedAt = Date.now();
     } catch {
       return; // a passing network problem: try again next time
+    } finally {
+      this.refreshing = false;
     }
     if (this.source !== source) return;
     const same = fresh.length === this.snapshots.length && fresh.every((s, i) => s.id === this.snapshots[i].id);

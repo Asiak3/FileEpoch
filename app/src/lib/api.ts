@@ -39,6 +39,8 @@ export interface Settings {
   thumbnails: boolean;
   /** Keep running in the system tray when the window is closed. */
   tray: boolean;
+  /** Look of the timeline (the "glass" one is a trial). */
+  timelineStyle: "classic" | "glass";
 }
 
 export interface Source {

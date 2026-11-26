@@ -71,21 +71,6 @@
 {:else}
   <div class="shell">
     <header class="topbar">
-      <div class="brand" aria-hidden="true">
-        <svg width="26" height="26" viewBox="0 0 1024 1024">
-          <defs>
-            <linearGradient id="tg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3aa0ff" /><stop offset="1" stop-color="#1450c8" /></linearGradient>
-          </defs>
-          <rect x="64" y="64" width="896" height="896" rx="208" fill="url(#tg)" />
-          <path d="M196 470A316 316 0 1 1 300 746" fill="none" stroke="#fff" stroke-width="72" stroke-linecap="round" />
-          <path d="M96 446L296 446L196 596z" fill="#fff" />
-          <circle cx="512" cy="512" r="200" fill="#fff" />
-          <path d="M512 400v122l84 56" fill="none" stroke="#1450c8" stroke-width="56" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-        <span>Rewind</span>
-      </div>
-      <button class="by" onclick={() => app.api.openProjectPage()} title={t("app.projectPage")}>{t("app.by")}</button>
-      <div class="divider" aria-hidden="true"></div>
       <SourcePicker />
       <div class="spacer"></div>
       <SettingsMenu />
@@ -105,7 +90,7 @@
       </div>
     {/if}
 
-    <div class="timeline-band">
+    <div class="timeline-band" class:glass={app.settings.timelineStyle === "glass"}>
       <Timeline />
     </div>
 
@@ -194,42 +179,13 @@
     align-items: center;
     gap: 8px;
     height: 56px;
-    padding: 0 12px 0 16px;
+    padding: 0 12px 0 12px;
     flex: none;
   }
 
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    font-family: var(--font-display);
-    font-weight: 600;
-    font-size: 15px;
-    letter-spacing: 0.01em;
-  }
 
-  .by {
-    margin: 3px 0 0 -3px;
-    padding: 2px 5px;
-    border: none;
-    border-radius: 4px;
-    background: none;
-    color: var(--text-3);
-    font-size: 11.5px;
-    letter-spacing: 0.02em;
-  }
 
-  .by:hover {
-    color: var(--accent);
-    background: var(--hover);
-  }
 
-  .divider {
-    width: 1px;
-    height: 24px;
-    margin: 0 6px 0 10px;
-    background: var(--border);
-  }
 
   .spacer {
     flex: 1;
@@ -274,6 +230,25 @@
     border-bottom: none;
     background: var(--bg-elev);
     flex: none;
+  }
+
+  /* Trial "glass" timeline: soft colour behind frosted surfaces (see Timeline.svelte). */
+  .timeline-band.glass {
+    border-color: rgba(255, 255, 255, 0.55);
+    background:
+      radial-gradient(90% 160% at 8% 0%, rgba(96, 165, 250, 0.32), transparent 62%),
+      radial-gradient(80% 160% at 92% 100%, rgba(167, 139, 250, 0.3), transparent 60%),
+      radial-gradient(60% 120% at 55% 40%, rgba(45, 212, 191, 0.14), transparent 70%),
+      var(--bg-elev);
+  }
+
+  :global([data-theme="dark"]) .timeline-band.glass {
+    border-color: rgba(255, 255, 255, 0.09);
+    background:
+      radial-gradient(90% 160% at 8% 0%, rgba(59, 130, 246, 0.28), transparent 62%),
+      radial-gradient(80% 160% at 92% 100%, rgba(139, 92, 246, 0.26), transparent 60%),
+      radial-gradient(60% 120% at 55% 40%, rgba(20, 184, 166, 0.12), transparent 70%),
+      var(--bg-elev);
   }
 
   .browser {
