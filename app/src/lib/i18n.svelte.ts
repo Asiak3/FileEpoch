@@ -7,6 +7,20 @@ type Plural = { one: string; other: string };
 type Dict = Record<string, string | Plural>;
 
 const en: Dict = {
+  "view.label": "View",
+  "view.details": "Details",
+  "view.list": "List",
+  "view.icons": "Large icons",
+  "view.tiles": "Tiles",
+  "col.mode": "Permissions",
+  "col.owner": "Owner",
+  "col.items": "Files",
+  "col.reset": "Reset columns",
+  "col.resize": "Resize column",
+  "menu.open": "Open",
+  "menu.copyPath": "Copy path",
+  "menu.selectAll": "Select all",
+  "menu.columns": "Columns",
   "connect.title": "Connect to a Kopia server",
   "connect.subtitle": "Rewind only reads from the server. Restored files are written to this computer.",
   "connect.server": "Server address",
@@ -117,6 +131,20 @@ const en: Dict = {
 };
 
 const es: Dict = {
+  "view.label": "Vista",
+  "view.details": "Detalles",
+  "view.list": "Lista",
+  "view.icons": "Iconos grandes",
+  "view.tiles": "Mosaico",
+  "col.mode": "Permisos",
+  "col.owner": "Propietario",
+  "col.items": "Archivos",
+  "col.reset": "Restablecer columnas",
+  "col.resize": "Cambiar ancho de la columna",
+  "menu.open": "Abrir",
+  "menu.copyPath": "Copiar ruta",
+  "menu.selectAll": "Seleccionar todo",
+  "menu.columns": "Columnas",
   "connect.title": "Conectar con un servidor Kopia",
   "connect.subtitle": "Rewind solo lee del servidor. Los archivos restaurados se guardan en este equipo.",
   "connect.server": "Dirección del servidor",
@@ -227,6 +255,20 @@ const es: Dict = {
 };
 
 const de: Dict = {
+  "view.label": "Ansicht",
+  "view.details": "Details",
+  "view.list": "Liste",
+  "view.icons": "Große Symbole",
+  "view.tiles": "Kacheln",
+  "col.mode": "Berechtigungen",
+  "col.owner": "Besitzer",
+  "col.items": "Dateien",
+  "col.reset": "Spalten zurücksetzen",
+  "col.resize": "Spaltenbreite ändern",
+  "menu.open": "Öffnen",
+  "menu.copyPath": "Pfad kopieren",
+  "menu.selectAll": "Alles auswählen",
+  "menu.columns": "Spalten",
   "connect.title": "Mit einem Kopia-Server verbinden",
   "connect.subtitle": "Rewind liest nur vom Server. Wiederhergestellte Dateien werden auf diesem Computer gespeichert.",
   "connect.server": "Serveradresse",

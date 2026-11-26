@@ -499,7 +499,7 @@ pub async fn restore_items(
 
     // --- folder dates, deepest first (adding files changes them) ---
     shared.update(|p| p.phase = Phase::Finishing);
-    dir_dates.sort_by(|a, b| b.1.cmp(&a.1));
+    dir_dates.sort_by_key(|d| std::cmp::Reverse(d.1));
     for (path, _, mtime) in dir_dates {
         if let Err(e) = set_mtime(&path, mtime, true).await {
             shared.summary().errors.push((path.display().to_string(), e.to_string()));
@@ -646,10 +646,11 @@ async fn plan_children(
 
 /// Removes an empty placeholder created by this restore.
 async fn remove_placeholder(path: &Path) {
-    if let Ok(m) = tokio::fs::symlink_metadata(path).await {
-        if m.is_file() && m.len() == 0 {
-            let _ = tokio::fs::remove_file(path).await;
-        }
+    if let Ok(m) = tokio::fs::symlink_metadata(path).await
+        && m.is_file()
+        && m.len() == 0
+    {
+        let _ = tokio::fs::remove_file(path).await;
     }
 }
 

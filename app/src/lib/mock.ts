@@ -74,11 +74,11 @@ function versionOf(root: string): { source: number; version: number; time: numbe
 }
 
 function file(name: string, size: number, mtime: number, n: number): Entry {
-  return { name, kind: "f", size, mtime, obj: hex(n, 32) };
+  return { name, kind: "f", size, mtime, obj: hex(n, 32), mode: n % 5 === 0 ? "0600" : "0644", uid: 1000, gid: 1000 };
 }
 
 function dir(name: string, size: number, mtime: number, n: number, files = 12): Entry {
-  return { name, kind: "d", size, mtime, obj: "k" + hex(n, 32), files };
+  return { name, kind: "d", size, mtime, obj: "k" + hex(n, 32), files, mode: "0755", uid: n % 3 === 0 ? 0 : 1000, gid: 1000 };
 }
 
 /** Directory contents for a path at a given content version. null = does not exist. */
@@ -156,6 +156,20 @@ export function mockApi(): Api {
     theme: (params.get("theme") as Settings["theme"]) ?? "system",
     groupIdentical: params.get("all") !== "1",
     lastSource: "",
+    viewMode: (params.get("view") as Settings["viewMode"]) ?? "details",
+    columns: params.get("cols") === "all" ? [
+      { id: "mtime", visible: true, width: 170 },
+      { id: "type", visible: true, width: 150 },
+      { id: "size", visible: true, width: 90 },
+      { id: "items", visible: true, width: 80 },
+      { id: "mode", visible: true, width: 100 },
+      { id: "owner", visible: true, width: 120 },
+    ] : [],
+    restoreNaming: "suffix",
+    suffixDate: "snapshot",
+    conflict: (params.get("conflict") as Settings["conflict"]) ?? "rename",
+    verify: true,
+    lastRestoreDir: "",
   };
   const sourceIndex = Number(params.get("source") ?? "1");
   settings.lastSource = `${sources[sourceIndex].userName}@${sources[sourceIndex].host}:${sources[sourceIndex].path}`;

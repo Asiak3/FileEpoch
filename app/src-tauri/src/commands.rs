@@ -257,6 +257,11 @@ pub struct EntryDto {
     /// Number of files below a directory.
     #[serde(skip_serializing_if = "Option::is_none")]
     files: Option<u64>,
+    /// Octal permissions such as `0644`, if stored.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    mode: Option<String>,
+    uid: u32,
+    gid: u32,
 }
 
 #[derive(Serialize)]
@@ -292,6 +297,9 @@ pub async fn open_path(state: tauri::State<'_, AppState>, root: String, path: Ve
             mtime: e.mtime.map(|t| t.timestamp_millis()),
             obj: e.obj.to_string(),
             files: e.summ.as_ref().map(|s| s.files),
+            mode: e.mode.clone(),
+            uid: e.uid,
+            gid: e.gid,
         })
         .collect();
     Ok(ListingDto { depth: r.depth, entries })

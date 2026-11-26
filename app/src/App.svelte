@@ -15,6 +15,13 @@
 
   onMount(() => {
     void app.init();
+    // Only Rewind's own context menus: hide the browser's (Back, Refresh, Print…) except in text fields.
+    const suppress = (e: MouseEvent) => {
+      const el = e.target as HTMLElement;
+      if (!el.closest("input, textarea, [contenteditable=true]")) e.preventDefault();
+    };
+    document.addEventListener("contextmenu", suppress);
+    return () => document.removeEventListener("contextmenu", suppress);
   });
 
   // Follow the system theme live when "system" is selected.

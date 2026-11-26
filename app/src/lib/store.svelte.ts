@@ -6,17 +6,33 @@ import {
   toApiError,
   type Api,
   type ApiError,
+  type ColumnId,
+  type ColumnSetting,
   type ConnectRequest,
   type ConnectResult,
   type Entry,
   type Settings,
   type Snapshot,
   type Source,
+  type ViewMode,
 } from "./api";
 import { i18n, resolveLocale } from "./i18n.svelte";
 import { buildPoints, indexNearest, type TimePoint } from "./timeline";
 
-export type SortKey = "name" | "mtime" | "type" | "size";
+export type SortKey = "name" | ColumnId;
+
+/** Optional columns of the details view, in display order. */
+export const DEFAULT_COLUMNS: ColumnSetting[] = [
+  { id: "mtime", visible: true, width: 180 },
+  { id: "type", visible: true, width: 160 },
+  { id: "size", visible: true, width: 100 },
+  { id: "items", visible: false, width: 90 },
+  { id: "mode", visible: false, width: 110 },
+  { id: "owner", visible: false, width: 110 },
+];
+
+export const MIN_COLUMN = 60;
+export const MAX_COLUMN = 520;
 type Screen = "loading" | "connect" | "mismatch" | "main";
 
 function normalize(s: string): string {
@@ -36,7 +52,23 @@ class AppStore {
     theme: "system",
     groupIdentical: true,
     lastSource: "",
+    viewMode: "details",
+    columns: [],
+    restoreNaming: "suffix",
+    suffixDate: "snapshot",
+    conflict: "rename",
+    verify: true,
+    lastRestoreDir: "",
   });
+
+  /** Saved column settings merged over the defaults (new columns appear, unknown ones vanish). */
+  columns = $derived<ColumnSetting[]>(
+    DEFAULT_COLUMNS.map((d) => {
+      const saved = this.settings.columns?.find((c) => c.id === d.id);
+      return saved ? { ...d, visible: saved.visible, width: Math.min(MAX_COLUMN, Math.max(MIN_COLUMN, saved.width)) } : d;
+    }),
+  );
+  visibleColumns = $derived(this.columns.filter((c) => c.visible));
   /** Error shown on the connect screen. */
   connectError = $state<ApiError | null>(null);
   /** Certificate presented by the server when it did not match the trusted one. */
@@ -104,6 +136,9 @@ class AppStore {
       if (key === "mtime") c = (a.e.mtime ?? 0) - (b.e.mtime ?? 0);
       else if (key === "size") c = a.e.size - b.e.size;
       else if (key === "type") c = str(a.t, b.t);
+      else if (key === "items") c = (a.e.files ?? -1) - (b.e.files ?? -1);
+      else if (key === "mode") c = str(a.e.mode ?? "", b.e.mode ?? "");
+      else if (key === "owner") c = (a.e.uid ?? 0) - (b.e.uid ?? 0) || (a.e.gid ?? 0) - (b.e.gid ?? 0);
       return sign * (c || str(a.k, b.k));
     });
   });
@@ -333,11 +368,25 @@ class AppStore {
     this.canForward = this.forward.length > 0;
   }
 
+  setViewMode(mode: ViewMode) {
+    void this.saveSettings({ viewMode: mode });
+  }
+
+  setColumn(id: ColumnId, patch: Partial<ColumnSetting>) {
+    const columns = this.columns.map((c) => (c.id === id ? { ...c, ...patch } : c));
+    if (patch.visible === false && this.sortKey === id) this.sortKey = "name";
+    void this.saveSettings({ columns });
+  }
+
+  resetColumns() {
+    void this.saveSettings({ columns: [] });
+  }
+
   sortBy(key: SortKey) {
     if (this.sortKey === key) this.sortAsc = !this.sortAsc;
     else {
       this.sortKey = key;
-      this.sortAsc = key === "name" || key === "type";
+      this.sortAsc = key === "name" || key === "type" || key === "mode" || key === "owner";
     }
   }
 }

@@ -21,6 +21,28 @@ pub struct Settings {
     pub group_identical: bool,
     /// Last selected source, as `user@host:path`.
     pub last_source: String,
+    /// File view: `details`, `list`, `icons` or `tiles`.
+    pub view_mode: String,
+    /// Optional columns of the details view, in display order (empty: defaults).
+    pub columns: Vec<ColumnSetting>,
+    /// Restore: `suffix` (add "(restored date)") or `original`.
+    pub restore_naming: String,
+    /// Restore: date in the suffix, `snapshot` or `modified`.
+    pub suffix_date: String,
+    /// Restore: `rename` (keep both), `skip` or `overwrite` (always asks first).
+    pub conflict: String,
+    /// Restore: check size and date of every restored file.
+    pub verify: bool,
+    /// Folder offered first by the destination picker.
+    pub last_restore_dir: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ColumnSetting {
+    pub id: String,
+    pub visible: bool,
+    pub width: u32,
 }
 
 impl Default for Settings {
@@ -33,6 +55,13 @@ impl Default for Settings {
             theme: "system".into(),
             group_identical: true,
             last_source: String::new(),
+            view_mode: "details".into(),
+            columns: Vec::new(),
+            restore_naming: "suffix".into(),
+            suffix_date: "snapshot".into(),
+            conflict: "rename".into(),
+            verify: true,
+            last_restore_dir: String::new(),
         }
     }
 }
@@ -43,11 +72,7 @@ fn path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 }
 
 pub fn load(app: &tauri::AppHandle) -> Settings {
-    path(app)
-        .ok()
-        .and_then(|p| std::fs::read(p).ok())
-        .and_then(|b| serde_json::from_slice(&b).ok())
-        .unwrap_or_default()
+    path(app).ok().and_then(|p| std::fs::read(p).ok()).and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
 }
 
 pub fn save(app: &tauri::AppHandle, settings: &Settings) -> Result<(), String> {

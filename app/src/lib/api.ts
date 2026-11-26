@@ -4,6 +4,15 @@
 export type Language = "auto" | "es" | "de" | "en";
 export type Theme = "system" | "light" | "dark";
 
+export type ViewMode = "details" | "list" | "icons" | "tiles";
+export type ColumnId = "mtime" | "type" | "size" | "mode" | "owner" | "items";
+
+export interface ColumnSetting {
+  id: ColumnId;
+  visible: boolean;
+  width: number;
+}
+
 export interface Settings {
   server: string;
   user: string;
@@ -12,6 +21,13 @@ export interface Settings {
   theme: Theme;
   groupIdentical: boolean;
   lastSource: string;
+  viewMode: ViewMode;
+  columns: ColumnSetting[];
+  restoreNaming: "suffix" | "original";
+  suffixDate: "snapshot" | "modified";
+  conflict: "rename" | "skip" | "overwrite";
+  verify: boolean;
+  lastRestoreDir: string;
 }
 
 export interface Source {
@@ -44,6 +60,10 @@ export interface Entry {
   mtime: number | null;
   obj: string;
   files?: number;
+  /** Octal permissions such as "0644". */
+  mode?: string;
+  uid?: number;
+  gid?: number;
 }
 
 export interface Listing {

@@ -1,9 +1,17 @@
 <script lang="ts">
+  import type { ViewMode } from "../api";
   import { app } from "../store.svelte";
   import { t } from "../i18n.svelte";
   import Icon from "./Icon.svelte";
 
   let searchInput: HTMLInputElement | undefined = $state();
+
+  const views: { mode: ViewMode; icon: string }[] = [
+    { mode: "details", icon: "view-details" },
+    { mode: "list", icon: "view-list" },
+    { mode: "icons", icon: "view-icons" },
+    { mode: "tiles", icon: "view-tiles" },
+  ];
 
   let rootName = $derived(app.source ? (app.source.path.split("/").filter(Boolean).at(-1) ?? "/") : "");
   let shown = $derived(app.shownPath);
@@ -70,6 +78,22 @@
       {/each}
     </ol>
   </nav>
+
+  <div class="views" role="radiogroup" aria-label={t("view.label")}>
+    {#each views as v (v.mode)}
+      <button
+        class="icon-btn"
+        class:active={app.settings.viewMode === v.mode}
+        role="radio"
+        aria-checked={app.settings.viewMode === v.mode}
+        title={t(`view.${v.mode}`)}
+        aria-label={t(`view.${v.mode}`)}
+        onclick={() => app.setViewMode(v.mode)}
+      >
+        <Icon name={v.icon} size={17} />
+      </button>
+    {/each}
+  </div>
 
   <div class="search">
     <Icon name="search" size={16} />
@@ -170,6 +194,26 @@
 
   .sep.missing {
     opacity: 0.6;
+  }
+
+  .views {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+  }
+
+  .views .icon-btn {
+    width: 30px;
+    height: 28px;
+  }
+
+  .views .icon-btn.active {
+    background: var(--surface);
+    color: var(--accent);
+    box-shadow: var(--shadow);
   }
 
   .search {
