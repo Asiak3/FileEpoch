@@ -17,6 +17,8 @@ use crate::restore_jobs::RestoreManager;
 pub const PROJECT_URL: &str = "https://github.com/Asiak3/FileEpoch";
 /// Passed by the operating system when FileEpoch starts with it.
 pub const AUTOSTART_ARG: &str = "--autostart";
+/// Passed by the uninstaller (when deleting the app data): forget the saved password and quit.
+pub const FORGET_ARG: &str = "--forget-credentials";
 const TRAY_ID: &str = "fileepoch";
 
 /// Whether closing the window keeps FileEpoch in the tray.
@@ -119,6 +121,14 @@ pub async fn quit_app(app: AppHandle) {
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
     app.exit(0);
+}
+
+/// Deletes the password saved for the configured server and user, if any.
+pub fn forget_saved_password(app: &AppHandle) {
+    let settings = crate::settings::load(app);
+    if let Ok(server) = settings.server.parse::<kopia_client::ServerAddress>() {
+        let _ = kopia_client::credentials::delete(&server, &settings.user);
+    }
 }
 
 /// Earlier versions were called "Rewind": if they were set to start with the system, remove that

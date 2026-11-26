@@ -12,7 +12,14 @@ use tauri::Manager;
 fn main() {
     tauri::Builder::default()
         // First: a second start (e.g. from the Start menu while in the tray) shows this window.
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| desktop::show_main(app)))
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            // The uninstaller asks to forget the password; if FileEpoch is running it lands here.
+            if args.iter().any(|a| a == desktop::FORGET_ARG) {
+                desktop::forget_saved_password(app);
+            } else {
+                desktop::show_main(app);
+            }
+        }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
@@ -24,6 +31,12 @@ fn main() {
         .manage(desktop::TrayState::default())
         .on_window_event(desktop::on_window_event)
         .setup(|app| {
+            // Uninstalling with "delete the application data": remove the saved password and quit
+            // before the window or the connection start.
+            if std::env::args().any(|a| a == desktop::FORGET_ARG) {
+                desktop::forget_saved_password(app.handle());
+                std::process::exit(0);
+            }
             let manager = restore_jobs::RestoreManager::start(app.handle());
             app.manage(manager);
             // The window starts hidden (tauri.conf.json): shown now, unless FileEpoch was started
