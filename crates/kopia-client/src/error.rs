@@ -73,6 +73,10 @@ pub enum Error {
     #[error("credential store: {0}")]
     Credentials(String),
 
+    /// The operation was cancelled by the user.
+    #[error("cancelled")]
+    Cancelled,
+
     #[error("{0}")]
     Other(String),
 }

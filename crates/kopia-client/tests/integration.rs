@@ -15,7 +15,11 @@ use bytes::Bytes;
 use chrono::{Local, TimeZone, Utc};
 use http_body_util::Full;
 use hyper::{Request, Response, StatusCode};
-use kopia_client::restore::{Naming, restore_file};
+use std::sync::atomic::AtomicBool;
+
+use kopia_client::restore::{
+    ConflictPolicy, Naming, RestoreOptions, SuffixDate, Summary, existing_targets, restore_items, root_entry,
+};
 use kopia_client::{EntryType, Error, Fingerprint, KopiaClient, Oid, ServerAddress, SnapshotsResponse, Warning};
 
 const USER: &str = "ui-user";
@@ -148,6 +152,8 @@ async fn handle(st: Arc<MockState>, req: Request<hyper::body::Incoming>) -> Resu
         let body: Vec<u8> = match oid {
             TEST_DIR_OID => test_dir_json().into_bytes(),
             o if tree_dir(o).is_some() => tree_dir(o).unwrap().into_bytes(),
+            o if restore_tree(o).is_some() => restore_tree(o).unwrap().into_bytes(),
+            "0a01" | "0a02" | "0a03" | "0a04" | "0a05" => HELLO.to_vec(),
             FILE_OID => file_bytes(),
             SHORT_FILE_OID => vec![0u8; 10], // entry says 1000 bytes
             o if o.starts_with('k') => fixture("dir-root.json").into_bytes(),
@@ -387,53 +393,236 @@ async fn finds_entries_by_path() {
     assert!(matches!(client.find_entry(&root, "re:port?.txt/x").await, Err(Error::NotFound(_))));
 }
 
-#[tokio::test]
-async fn restores_a_file_without_overwriting_and_sets_mtime() {
-    let mock = Mock::start().await;
-    let client = mock.client();
-    let root: Oid = TEST_DIR_OID.parse().unwrap();
-    let entry = client.find_entry(&root, "re:port?.txt").await.unwrap();
-    let out = tempfile::tempdir().unwrap();
-    let naming =
-        Naming::Suffix { label: "restored".into(), time: Local.with_ymd_and_hms(2026, 11, 25, 19, 0, 0).unwrap() };
+// --- restore -------------------------------------------------------------------------------------
 
-    let first = restore_file(&client, &entry, out.path(), &naming).await.unwrap();
-    let second = restore_file(&client, &entry, out.path(), &naming).await.unwrap();
+const HELLO: &[u8] = b"hello";
 
-    let expected_name = if cfg!(windows) {
-        "re_port_ (restored 2026-11-25 19-00).txt"
-    } else {
-        "re:port? (restored 2026-11-25 19-00).txt"
+fn restore_tree(oid: &str) -> Option<String> {
+    let entries = match oid {
+        // /docs (2025-01-01) with tricky names, a link, a subfolder.
+        "k8001" => r#"{"name":"docs","type":"d","mtime":"2025-01-01T10:00:00Z","obj":"k8002"}"#.to_owned(),
+        "k8002" => r#"{"name":"a.txt","type":"f","size":5,"mtime":"2024-01-02T03:04:05Z","obj":"0a01"},
+               {"name":"A.TXT","type":"f","size":5,"mtime":"2024-01-02T03:04:05Z","obj":"0a02"},
+               {"name":"x:y.txt","type":"f","size":5,"obj":"0a03"},
+               {"name":"x_y.txt","type":"f","size":5,"obj":"0a04"},
+               {"name":"..","type":"f","size":5,"obj":"0a05"},
+               {"name":"a/b","type":"f","size":5,"obj":"0a05"},
+               {"name":"","type":"f","size":5,"obj":"0a05"},
+               {"name":"link","type":"s","size":3,"obj":"0abc"},
+               {"name":"sub","type":"d","mtime":"2024-06-01T12:00:00Z","obj":"k8003"}"#
+            .to_owned(),
+        "k8003" => format!(
+            r#"{{"name":"deep.bin","type":"f","size":{FILE_SIZE},"mtime":"2024-05-05T05:05:05Z","obj":"{FILE_OID}"}},
+               {{"name":"broken.bin","type":"f","size":1000,"obj":"{SHORT_FILE_OID}"}}"#
+        ),
+        _ => return None,
     };
-    assert_eq!(first.path.file_name().unwrap().to_str().unwrap(), expected_name);
-    assert_eq!(first.sanitized, cfg!(windows));
-    assert!(second.path.file_name().unwrap().to_str().unwrap().ends_with("19-00) (2).txt"), "{second:?}");
-    assert_eq!(std::fs::read(&first.path).unwrap(), file_bytes());
-    let mtime: chrono::DateTime<Utc> = std::fs::metadata(&first.path).unwrap().modified().unwrap().into();
-    assert_eq!(mtime.timestamp(), entry.mtime.unwrap().timestamp());
-    let leftovers: Vec<_> = std::fs::read_dir(out.path()).unwrap().map(|e| e.unwrap().file_name()).collect();
-    assert_eq!(leftovers.len(), 2, "{leftovers:?}");
+    Some(format!(r#"{{"stream":"kopia:directory","entries":[{entries}]}}"#))
+}
+
+fn opts(naming: Naming, conflict: ConflictPolicy) -> RestoreOptions {
+    RestoreOptions::new(naming, conflict)
+}
+
+fn suffix() -> Naming {
+    Naming::Suffix {
+        label: "restored".into(),
+        date: SuffixDate::Snapshot(Local.with_ymd_and_hms(2026, 11, 25, 19, 0, 0).unwrap()),
+    }
+}
+
+async fn docs_entry(client: &KopiaClient) -> kopia_client::DirEntry {
+    client.find_entry(&"k8001".parse().unwrap(), "docs").await.unwrap()
+}
+
+/// Everything below `dir` (relative paths with `/`), sorted.
+fn tree(dir: &std::path::Path) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut stack = vec![dir.to_path_buf()];
+    while let Some(d) = stack.pop() {
+        for e in std::fs::read_dir(&d).unwrap() {
+            let p = e.unwrap().path();
+            if p.is_dir() {
+                stack.push(p.clone());
+            }
+            out.push(p.strip_prefix(dir).unwrap().to_string_lossy().replace('\\', "/"));
+        }
+    }
+    out.sort();
+    out
+}
+
+fn mtime_of(p: &std::path::Path) -> i64 {
+    chrono::DateTime::<Utc>::from(std::fs::metadata(p).unwrap().modified().unwrap()).timestamp()
+}
+
+async fn run(
+    client: &KopiaClient,
+    items: &[kopia_client::DirEntry],
+    dest: &std::path::Path,
+    o: &RestoreOptions,
+) -> kopia_client::Result<Summary> {
+    let cancel = AtomicBool::new(false);
+    restore_items(client, items, dest, o, &cancel, &|_| {}).await
 }
 
 #[tokio::test]
-async fn size_mismatch_leaves_no_files_behind() {
+async fn restores_a_folder_tree_safely() {
     let mock = Mock::start().await;
     let client = mock.client();
-    let entry = client.find_entry(&TEST_DIR_OID.parse().unwrap(), "short.bin").await.unwrap();
     let out = tempfile::tempdir().unwrap();
-    let err = restore_file(&client, &entry, out.path(), &Naming::Original).await.unwrap_err();
-    assert!(matches!(err, Error::SizeMismatch { expected: 1000, actual: 10, .. }), "{err:?}");
-    assert_eq!(std::fs::read_dir(out.path()).unwrap().count(), 0);
+    let docs = docs_entry(&client).await;
+
+    let s = run(&client, &[docs], out.path(), &opts(suffix(), ConflictPolicy::Rename)).await.unwrap();
+
+    let top = "docs (restored 2026-11-25 19-00)";
+    assert_eq!(s.top_level, vec![out.path().join(top)]);
+    let files = tree(out.path());
+    assert!(files.iter().all(|f| f.starts_with(top)), "everything stays inside the restored folder: {files:?}");
+    assert!(!files.iter().any(|f| f.ends_with(".part")), "no temporary files: {files:?}");
+    // Folder contents keep their names; collisions get a counter instead of overwriting.
+    let prefix = format!("{top}/");
+    let docs_files: Vec<&str> =
+        files.iter().filter_map(|f| f.strip_prefix(prefix.as_str())).filter(|f| !f.contains('/')).collect();
+    assert!(docs_files.contains(&"a.txt"));
+    if cfg!(windows) {
+        assert!(docs_files.contains(&"A (2).TXT"), "{docs_files:?}");
+        assert!(docs_files.contains(&"x_y.txt") && docs_files.contains(&"x_y (2).txt"), "{docs_files:?}");
+    } else {
+        assert!(docs_files.contains(&"A.TXT") && docs_files.contains(&"x:y.txt"), "{docs_files:?}");
+    }
+    // Hostile names ("..", "a/b", "") became harmless names inside the folder.
+    assert!(docs_files.iter().filter(|f| f.starts_with('_') || f.starts_with("a_b")).count() >= 3, "{docs_files:?}");
+    for f in docs_files.iter().filter(|f| **f != "sub") {
+        assert_eq!(std::fs::read(out.path().join(top).join(f)).unwrap(), HELLO, "{f}");
+    }
+    assert_eq!(std::fs::read(out.path().join(top).join("sub/deep.bin")).unwrap(), file_bytes());
+
+    // Truncated file: reported, removed, the rest completed.
+    assert!(!out.path().join(top).join("sub/broken.bin").exists());
+    assert_eq!(s.errors.len(), 1, "{:?}", s.errors);
+    assert_eq!(s.errors[0].0, "docs/sub/broken.bin");
+    assert_eq!(s.skipped_links, vec!["docs/link".to_owned()]);
+    assert!(s.renamed.len() >= 3, "{:?}", s.renamed);
+    assert_eq!(s.files_restored, 8);
+    assert_eq!(s.dirs_created, 2);
+    assert!(!s.cancelled);
+
+    // Dates: files and folders (folders set last, so adding files did not change them).
+    assert_eq!(mtime_of(&out.path().join(top).join("a.txt")), 1704164645);
+    assert_eq!(mtime_of(&out.path().join(top).join("sub")), 1717243200);
+    assert_eq!(mtime_of(&out.path().join(top)), 1735725600);
 }
 
 #[tokio::test]
-async fn refuses_to_restore_symlinks() {
+async fn restoring_again_never_overwrites() {
     let mock = Mock::start().await;
     let client = mock.client();
-    let entry = client.find_entry(&TEST_DIR_OID.parse().unwrap(), "current").await.unwrap();
     let out = tempfile::tempdir().unwrap();
-    assert!(restore_file(&client, &entry, out.path(), &Naming::Original).await.is_err());
-    assert_eq!(std::fs::read_dir(out.path()).unwrap().count(), 0);
+    let docs = docs_entry(&client).await;
+    let o = opts(Naming::Original, ConflictPolicy::Rename);
+    run(&client, std::slice::from_ref(&docs), out.path(), &o).await.unwrap();
+    std::fs::write(out.path().join("docs/a.txt"), b"mine").unwrap();
+    let s = run(&client, &[docs], out.path(), &o).await.unwrap();
+    assert_eq!(s.top_level, vec![out.path().join("docs (2)")]);
+    assert_eq!(std::fs::read(out.path().join("docs/a.txt")).unwrap(), b"mine");
+}
+
+#[tokio::test]
+async fn skip_policy_merges_and_keeps_existing_files() {
+    let mock = Mock::start().await;
+    let client = mock.client();
+    let out = tempfile::tempdir().unwrap();
+    std::fs::create_dir(out.path().join("docs")).unwrap();
+    std::fs::write(out.path().join("docs/a.txt"), b"mine").unwrap();
+    let docs = docs_entry(&client).await;
+    let s = run(&client, &[docs], out.path(), &opts(Naming::Original, ConflictPolicy::Skip)).await.unwrap();
+    assert_eq!(std::fs::read(out.path().join("docs/a.txt")).unwrap(), b"mine");
+    assert!(s.skipped_existing.contains(&"docs/a.txt".to_owned()), "{:?}", s.skipped_existing);
+    assert!(out.path().join("docs/sub/deep.bin").exists());
+}
+
+#[tokio::test]
+async fn overwrite_needs_confirmation() {
+    let mock = Mock::start().await;
+    let client = mock.client();
+    let out = tempfile::tempdir().unwrap();
+    std::fs::create_dir(out.path().join("docs")).unwrap();
+    std::fs::write(out.path().join("docs/a.txt"), b"mine").unwrap();
+    let docs = docs_entry(&client).await;
+
+    assert_eq!(
+        existing_targets(std::slice::from_ref(&docs), out.path(), &Naming::Original),
+        vec![out.path().join("docs")]
+    );
+    let refused = run(
+        &client,
+        std::slice::from_ref(&docs),
+        out.path(),
+        &opts(Naming::Original, ConflictPolicy::Overwrite { confirmed: false }),
+    )
+    .await;
+    assert!(refused.is_err());
+    assert_eq!(std::fs::read(out.path().join("docs/a.txt")).unwrap(), b"mine");
+    assert_eq!(tree(out.path()), vec!["docs".to_owned(), "docs/a.txt".to_owned()], "nothing written");
+
+    run(&client, &[docs], out.path(), &opts(Naming::Original, ConflictPolicy::Overwrite { confirmed: true }))
+        .await
+        .unwrap();
+    assert_eq!(std::fs::read(out.path().join("docs/a.txt")).unwrap(), HELLO);
+}
+
+#[tokio::test]
+async fn never_replaces_something_of_another_type() {
+    let mock = Mock::start().await;
+    let client = mock.client();
+    let out = tempfile::tempdir().unwrap();
+    std::fs::create_dir(out.path().join("docs")).unwrap();
+    std::fs::write(out.path().join("docs/sub"), b"a file where a folder should go").unwrap();
+    let docs = docs_entry(&client).await;
+    let s = run(&client, &[docs], out.path(), &opts(Naming::Original, ConflictPolicy::Overwrite { confirmed: true }))
+        .await
+        .unwrap();
+    assert_eq!(std::fs::read(out.path().join("docs/sub")).unwrap(), b"a file where a folder should go");
+    assert!(s.errors.iter().any(|(p, _)| p == "docs/sub"), "{:?}", s.errors);
+}
+
+#[tokio::test]
+async fn cancelling_keeps_finished_files_and_removes_partial_ones() {
+    let mock = Mock::start().await;
+    let client = mock.client();
+    let out = tempfile::tempdir().unwrap();
+    let deep = client.find_entry(&"k8001".parse().unwrap(), "docs/sub/deep.bin").await.unwrap();
+    let cancel = AtomicBool::new(false);
+    let mut o = opts(Naming::Original, ConflictPolicy::Rename);
+    o.file_concurrency = 1;
+    // Cancel as soon as the first bytes arrive.
+    let s = restore_items(&client, &[deep], out.path(), &o, &cancel, &|p| {
+        if p.bytes_done > 0 {
+            cancel.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+    })
+    .await
+    .unwrap();
+    assert!(s.cancelled);
+    assert_eq!(s.files_restored, 0);
+    assert!(tree(out.path()).is_empty(), "{:?}", tree(out.path()));
+}
+
+#[tokio::test]
+async fn restores_a_whole_snapshot_and_single_files() {
+    let mock = Mock::start().await;
+    let client = mock.client();
+    let out = tempfile::tempdir().unwrap();
+    let root = root_entry("/data/source-1", "k8001".parse().unwrap(), Utc::now());
+    let s = run(&client, &[root], out.path(), &opts(Naming::Original, ConflictPolicy::Rename)).await.unwrap();
+    assert!(out.path().join("source-1/docs/sub/deep.bin").exists());
+    assert_eq!(s.dirs_created, 3);
+
+    let file = client.find_entry(&"k8001".parse().unwrap(), "docs/a.txt").await.unwrap();
+    let s = run(&client, &[file.clone(), file], out.path(), &opts(suffix(), ConflictPolicy::Rename)).await.unwrap();
+    let names: Vec<_> = s.top_level.iter().map(|p| p.file_name().unwrap().to_string_lossy().into_owned()).collect();
+    assert_eq!(names, vec!["a (restored 2026-11-25 19-00).txt", "a (restored 2026-11-25 19-00) (2).txt"]);
 }
 
 #[tokio::test]

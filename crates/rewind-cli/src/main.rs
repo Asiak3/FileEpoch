@@ -12,7 +12,9 @@ use anyhow::{Context, Result, anyhow, bail};
 use chrono::{DateTime, Local, Utc};
 use clap::{Parser, Subcommand};
 use kopia_client::credentials::Secret;
-use kopia_client::restore::{Naming, restore_file};
+use std::sync::atomic::AtomicBool;
+
+use kopia_client::restore::{ConflictPolicy, Naming, Progress, RestoreOptions, SuffixDate, restore_items, root_entry};
 use kopia_client::{
     EntryType, Error, Fingerprint, KopiaClient, ServerAddress, Snapshot, SourceInfo, Warning, credentials,
     probe_certificate,
@@ -69,14 +71,14 @@ enum Command {
         #[arg(long, default_value = "")]
         path: String,
     },
-    /// Download one file from a snapshot into a local folder (never overwrites)
+    /// Restore a file or folder from a snapshot into a local folder (never overwrites)
     Download {
         #[arg(long)]
         source: String,
         #[arg(long, default_value = "latest")]
         snapshot: String,
-        /// Path of the file inside the snapshot, components separated by `/`
-        #[arg(long)]
+        /// Path inside the snapshot, components separated by `/` (default: the whole snapshot)
+        #[arg(long, default_value = "")]
         path: String,
         /// Local folder to write into
         #[arg(long)]
@@ -211,43 +213,64 @@ async fn run(cli: Cli) -> Result<()> {
         Command::Download { source, snapshot, path, out, keep_name } => {
             let src = find_source(&client, &source).await?;
             let snap = select_snapshot(&client, &src, &snapshot).await?;
-            let entry = client.find_entry(&snap.root_id, &path).await?;
-            match entry.entry_type {
-                EntryType::File => {}
-                EntryType::Directory => bail!("{path} is a folder; folder restore comes in phase 3"),
-                EntryType::Symlink => bail!("{path} is a symbolic link; links are not restored"),
-                EntryType::Unknown => bail!("{path} has an unknown type"),
-            }
+            let entry = if path.split('/').all(|p| p.is_empty()) {
+                root_entry(&src.path, snap.root_id.clone(), snap.start_time)
+            } else {
+                client.find_entry(&snap.root_id, &path).await?
+            };
             if !out.is_dir() {
                 bail!("output folder {} does not exist", out.display());
             }
             let naming = if keep_name {
                 Naming::Original
             } else {
-                Naming::Suffix { label: "restored".into(), time: snap.start_time.with_timezone(&Local) }
+                Naming::Suffix {
+                    label: "restored".into(),
+                    date: SuffixDate::Snapshot(snap.start_time.with_timezone(&Local)),
+                }
             };
-            println!(
-                "Downloading {} ({}) from snapshot {} ...",
-                entry.name,
-                human_size(entry.size),
-                local(snap.start_time)
-            );
+            println!("Restoring {} from snapshot {} ...", entry.name, local(snap.start_time));
             let started = Instant::now();
-            let done = restore_file(&client, &entry, &out, &naming).await?;
+            let cancel = AtomicBool::new(false);
+            let last = std::sync::Mutex::new(Instant::now());
+            let report = |p: &Progress| {
+                let mut l = last.lock().unwrap();
+                if l.elapsed().as_millis() >= 500 {
+                    *l = Instant::now();
+                    eprint!(
+                        "\r  {}/{} files, {} / {}        ",
+                        p.files_done,
+                        p.files_total,
+                        human_size(p.bytes_done),
+                        human_size(p.bytes_total)
+                    );
+                }
+            };
+            let opts = RestoreOptions::new(naming, ConflictPolicy::Rename);
+            let s = restore_items(&client, std::slice::from_ref(&entry), &out, &opts, &cancel, &report).await?;
+            eprintln!();
             let secs = started.elapsed().as_secs_f64().max(0.001);
-            println!(
-                "Saved {} ({} bytes, {}/s)",
-                done.path.display(),
-                done.bytes,
-                human_size((done.bytes as f64 / secs) as u64)
-            );
-            if done.sanitized {
-                println!(
-                    "Note: the name contained characters not allowed on this system; they were replaced with '_'."
-                );
+            for p in &s.top_level {
+                println!("Saved {}", p.display());
             }
-            if let Some(m) = entry.mtime {
-                println!("Modification time set to {}", local(m));
+            println!(
+                "{} files, {} ({}/s), {} folders created",
+                s.files_restored,
+                human_size(s.bytes_restored),
+                human_size((s.bytes_restored as f64 / secs) as u64),
+                s.dirs_created
+            );
+            for (from, to) in &s.renamed {
+                println!("renamed: {from} -> {}", to.display());
+            }
+            for l in &s.skipped_links {
+                println!("skipped symbolic link: {l}");
+            }
+            for (p, e) in &s.errors {
+                println!("ERROR {p}: {e}");
+            }
+            if !s.errors.is_empty() {
+                bail!("{} item(s) could not be restored", s.errors.len());
             }
         }
     }
