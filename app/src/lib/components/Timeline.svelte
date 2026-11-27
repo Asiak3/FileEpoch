@@ -266,9 +266,10 @@
 
     <div class="viewport">
       {#if point}
-        <div class="bubble" style:left="{bubbleLeft}px" aria-hidden="true">
-          <strong>{i18n.dateTime(point.time)}</strong>
-          <span>
+        <div class="bubble" style:left="{bubbleLeft}px">
+          <!-- The text is only for the eye (the slider announces valueText); the button is real. -->
+          <strong aria-hidden="true">{i18n.dateTime(point.time)}</strong>
+          <span aria-hidden="true">
             {i18n.relative(point.time)}
             {#if point.count > 1}
               · {t("timeline.unchangedUntil", { time: i18n.dateTime(point.last.startTime) })}
@@ -277,10 +278,20 @@
               · <em>{t("timeline.incomplete")}</em>
             {/if}
           </span>
-          {#if sizeText(index)}
+          {#if sizeText(index) || app.canShowChanges}
             <span class="size">
-              {sizeText(index)}
-              {#if deltaText(index)}<span class="delta">({deltaText(index)})</span>{/if}
+              {#if sizeText(index)}<span aria-hidden="true">{sizeText(index)}</span>{/if}
+              {#if app.canShowChanges}
+                <button
+                  class="delta changes"
+                  onclick={() => app.showChanges()}
+                  onpointerdown={(e) => e.stopPropagation()}
+                  title={t("diff.linkHint")}
+                  aria-label={deltaText(index) ? `${t("diff.link")} (${deltaText(index)})` : t("diff.link")}
+                >
+                  {deltaText(index) ? `(${deltaText(index)})` : t("diff.link")}
+                </button>
+              {/if}
             </span>
           {/if}
         </div>
@@ -488,6 +499,23 @@
   .bubble .delta {
     margin-left: 5px;
     color: var(--text-3);
+  }
+
+  /* The only part of the bubble that takes the mouse: it opens the list of changes. */
+  .bubble button.changes {
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+    pointer-events: auto;
+  }
+
+  .bubble button.changes:hover {
+    filter: brightness(1.15);
   }
 
   .bubble em {

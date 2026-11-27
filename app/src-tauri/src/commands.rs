@@ -7,7 +7,8 @@
 use std::sync::{Arc, Mutex};
 
 use kopia_client::{
-    EntryType, Error, Fingerprint, KopiaClient, Oid, ServerAddress, Snapshot, SourceInfo, Warning, credentials,
+    ChangeKind, EntryType, Error, Fingerprint, KopiaClient, Oid, ServerAddress, Snapshot, SourceInfo, Warning,
+    credentials,
 };
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroizing;
@@ -314,4 +315,67 @@ pub async fn open_path(state: tauri::State<'_, AppState>, root: String, path: Ve
         })
         .collect();
     Ok(ListingDto { depth: r.depth, entries })
+}
+
+/// One changed file (or a whole folder that appeared or disappeared) between two versions.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChangeDto {
+    /// Path below the snapshot root, components separated by `/`.
+    path: String,
+    /// `added`, `removed` or `modified`.
+    kind: &'static str,
+    is_dir: bool,
+    size_before: u64,
+    size_after: u64,
+    /// 1 for a file, the number of files inside for a folder.
+    files: u64,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffDto {
+    /// Biggest change first.
+    changes: Vec<ChangeDto>,
+    added_files: u64,
+    removed_files: u64,
+    modified_files: u64,
+    net_bytes: i64,
+    /// The comparison stopped at its limits: the figures only cover part of the changes.
+    truncated: bool,
+}
+
+/// Content changes from the version whose root is `old_root` to the one whose root is `new_root`.
+#[tauri::command]
+pub async fn diff_snapshots(
+    state: tauri::State<'_, AppState>,
+    old_root: String,
+    new_root: String,
+) -> CmdResult<DiffDto> {
+    let client = state.client()?;
+    let (old_root, new_root): (Oid, Oid) = (old_root.parse()?, new_root.parse()?);
+    let d = client.diff_snapshots(&old_root, &new_root).await?;
+    Ok(DiffDto {
+        changes: d
+            .changes
+            .into_iter()
+            .map(|c| ChangeDto {
+                path: c.path,
+                kind: match c.kind {
+                    ChangeKind::Added => "added",
+                    ChangeKind::Removed => "removed",
+                    ChangeKind::Modified => "modified",
+                },
+                is_dir: c.is_dir,
+                size_before: c.size_before,
+                size_after: c.size_after,
+                files: c.files,
+            })
+            .collect(),
+        added_files: d.totals.added_files,
+        removed_files: d.totals.removed_files,
+        modified_files: d.totals.modified_files,
+        net_bytes: d.totals.net_bytes,
+        truncated: d.truncated,
+    })
 }

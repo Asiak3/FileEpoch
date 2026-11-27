@@ -12,6 +12,7 @@
   import Icon from "./lib/components/Icon.svelte";
   import RestorePanel from "./lib/components/RestorePanel.svelte";
   import ConfirmDialog from "./lib/components/ConfirmDialog.svelte";
+  import DiffPanel from "./lib/components/DiffPanel.svelte";
   import type { Entry } from "./lib/api";
   import type { MenuItem } from "./lib/components/ContextMenu.svelte";
 
@@ -159,6 +160,10 @@
   {#if app.restorePanelOpen}
     <RestorePanel anchor={panelButton} />
   {/if}
+{/if}
+
+{#if app.diffState}
+  <DiffPanel />
 {/if}
 
 {#if app.confirmState}

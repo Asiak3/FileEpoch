@@ -2,9 +2,9 @@
 // screenshots and contributors without a Kopia server. Never loaded inside the Tauri app.
 //
 // URL parameters: ?screen=connect  ?lang=es|de|en  ?theme=light|dark  ?source=<n>  ?path=a/b
-//                 ?mismatch=1  ?readonly=0  ?version=0.99.0
+//                 ?mismatch=1  ?readonly=0  ?version=0.99.0  ?diff=empty|error|truncated
 
-import type { Api, Entry, Listing, RestoreJob, Settings, Snapshot, Source, UpdateProgress } from "./api";
+import type { Api, Entry, FileChange, Listing, RestoreJob, Settings, Snapshot, Source, UpdateProgress, VersionDiff } from "./api";
 
 const params = new URLSearchParams(location.search);
 const FP_HEX = "3f9a0c5e7b21d4486a0e9f13c2b75d8e41a6f0c97e2b5d3184c6a9e07f1b2d4c";
@@ -342,6 +342,37 @@ export function mockApi(): Api {
         entries = next;
       }
       return { depth, entries };
+    },
+    async diffSnapshots(oldRoot, newRoot): Promise<VersionDiff> {
+      await delay(400);
+      // Hand-made: directory object IDs of the mock do not depend on the version, so a real
+      // comparison would find nothing. ?diff=empty / ?diff=error / ?diff=truncated show the other states.
+      const mode = params.get("diff");
+      if (mode === "error") throw { code: "connection", message: "mock" };
+      if (mode === "empty" || oldRoot === newRoot) {
+        return { changes: [], addedFiles: 0, removedFiles: 0, modifiedFiles: 0, netBytes: 0, truncated: false };
+      }
+      const MB = 1_048_576;
+      const changes: FileChange[] = [
+        { path: "Fotos/2026/Vacaciones", kind: "added", isDir: true, sizeBefore: 0, sizeAfter: Math.round(12.75 * MB), files: 6 },
+        { path: "Documentos/Informe_Final_2025.pdf", kind: "modified", isDir: false, sizeBefore: Math.round(3.2 * MB), sizeAfter: Math.round(3.6 * MB), files: 1 },
+        { path: "Trabajo/Cliente Norte/Plan.docx", kind: "modified", isDir: false, sizeBefore: 220_000, sizeAfter: 225_000, files: 1 },
+        { path: "Fotos/Foto_Equipo.jpg", kind: "removed", isDir: false, sizeBefore: Math.round(0.8 * MB), sizeAfter: 0, files: 1 },
+        { path: "Notas_Reunión.txt", kind: "modified", isDir: false, sizeBefore: 12_288, sizeAfter: 12_300, files: 1 },
+      ];
+      // 60 more small ones, to see the "show all" list.
+      for (let i = 0; i < 60; i++) {
+        changes.push({ path: `Fotos/2026/Vacaciones/IMG_${String(1000 + i)}.jpg`, kind: "added", isDir: false, sizeBefore: 0, sizeAfter: 40_000 + i * 700, files: 1 });
+      }
+      changes.sort((a, b) => Math.max(b.sizeBefore, b.sizeAfter) - Math.max(a.sizeBefore, a.sizeAfter));
+      return {
+        changes,
+        addedFiles: 6 + 60,
+        removedFiles: 1,
+        modifiedFiles: 3,
+        netBytes: 12_345_678,
+        truncated: mode === "truncated",
+      };
     },
     async setWindowTheme() {},
     async chooseDestination() {

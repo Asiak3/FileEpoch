@@ -98,6 +98,31 @@ export interface Listing {
   entries: Entry[];
 }
 
+/** One file that changed between two versions, or a whole folder that appeared or disappeared. */
+export interface FileChange {
+  /** Below the snapshot root, components separated by "/". */
+  path: string;
+  kind: "added" | "removed" | "modified";
+  isDir: boolean;
+  sizeBefore: number;
+  sizeAfter: number;
+  /** 1 for a file, the number of files inside for a folder. */
+  files: number;
+}
+
+/** Content changes between two versions (dates and permissions alone do not count). */
+export interface VersionDiff {
+  /** Biggest change first. */
+  changes: FileChange[];
+  addedFiles: number;
+  removedFiles: number;
+  modifiedFiles: number;
+  /** Newer total minus older total of the changed items. */
+  netBytes: number;
+  /** The comparison stopped at its limits: the figures only cover part of the changes. */
+  truncated: boolean;
+}
+
 export interface CertInfo {
   hex: string;
   colon: string;
@@ -207,6 +232,8 @@ export interface Api {
   listSources(): Promise<Source[]>;
   listSnapshots(source: Source): Promise<Snapshot[]>;
   openPath(root: string, path: string[]): Promise<Listing>;
+  /** What changed from the version with root `oldRoot` to the one with root `newRoot`. */
+  diffSnapshots(oldRoot: string, newRoot: string): Promise<VersionDiff>;
   setWindowTheme(theme: "light" | "dark" | null): Promise<void>;
   chooseDestination(start: string | null, title: string): Promise<string | null>;
   restoreConflicts(request: RestoreRequest): Promise<string[]>;
@@ -266,6 +293,7 @@ async function tauriApi(): Promise<Api> {
     listSources: () => invoke("list_sources"),
     listSnapshots: (source) => invoke("list_snapshots", { source }),
     openPath: (root, path) => invoke("open_path", { root, path }),
+    diffSnapshots: (oldRoot, newRoot) => invoke("diff_snapshots", { oldRoot, newRoot }),
     setWindowTheme: (theme) => getCurrentWindow().setTheme(theme),
     chooseDestination: (start, title) => invoke("choose_destination", { start, title }),
     restoreConflicts: (request) => invoke("restore_conflicts", { request }),

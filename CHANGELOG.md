@@ -5,6 +5,10 @@ and versions follow [Semantic Versioning](https://semver.org/) (0.x while in bet
 
 ## [Unreleased]
 
+### Added
+
+- See what changed in a version: the size change in the timeline bubble (for example "+2.9 MB") is now a link that opens the list of files that were added, modified or removed compared with the previous version. Only changes of content count (not dates or permissions). Shows the 50 largest changes, with a button to show all of them.
+
 ## [0.1.0] - 2026-11-26
 
 First beta.

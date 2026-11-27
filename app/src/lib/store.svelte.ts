@@ -18,6 +18,7 @@ import {
   type Snapshot,
   type Source,
   type UpdateInfo,
+  type VersionDiff,
   type ViewMode,
 } from "./api";
 import { i18n, resolveLocale, t } from "./i18n.svelte";
@@ -132,6 +133,15 @@ class AppStore {
   confirmState = $state<{ title: string; body: string; items: string[]; yes: string; resolve: (ok: boolean) => void } | null>(
     null,
   );
+  /** "What changed" panel: the version shown against the one before it. null = closed. */
+  diffState = $state<{
+    current: TimePoint;
+    previous: TimePoint;
+    loading: boolean;
+    error: ApiError | null;
+    diff: VersionDiff | null;
+  } | null>(null);
+  private diffSeq = 0;
   /** Short message at the bottom of the window. */
   toast = $state<string | null>(null);
   private toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -545,6 +555,32 @@ class AppStore {
     clearTimeout(this.toastTimer);
     this.toast = message;
     this.toastTimer = setTimeout(() => (this.toast = null), 6000);
+  }
+
+  /** Whether the shown version has a different content than the previous point (so there is something to compare). */
+  canShowChanges = $derived(this.pointIndex > 0 && !!this.point?.changed);
+
+  /**
+   * Opens the panel with what changed from the previous point to the shown one. Both points are
+   * captured now, and an answer for another pair (the user moved on) is dropped.
+   */
+  async showChanges() {
+    const current = this.points[this.pointIndex];
+    const previous = this.points[this.pointIndex - 1];
+    if (!current || !previous || !current.changed) return;
+    const seq = ++this.diffSeq;
+    this.diffState = { current, previous, loading: true, error: null, diff: null };
+    try {
+      const diff = await this.api.diffSnapshots(previous.snapshot.rootId, current.snapshot.rootId);
+      if (seq === this.diffSeq && this.diffState) this.diffState = { ...this.diffState, loading: false, diff };
+    } catch (e) {
+      if (seq === this.diffSeq && this.diffState) this.diffState = { ...this.diffState, loading: false, error: toApiError(e) };
+    }
+  }
+
+  closeChanges() {
+    this.diffSeq++;
+    this.diffState = null;
   }
 
   confirm(options: { title: string; body: string; items: string[]; yes: string }): Promise<boolean> {

@@ -65,6 +65,7 @@ fn main() {
             commands::list_sources,
             commands::list_snapshots,
             commands::open_path,
+            commands::diff_snapshots,
             restore_jobs::choose_destination,
             restore_jobs::restore_conflicts,
             restore_jobs::start_restore,
