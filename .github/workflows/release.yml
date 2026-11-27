@@ -68,6 +68,14 @@ jobs:
       - name: License notices are up to date
         run: node tools/third-party-notices.mjs --check
 
+      # The notes of the release come from the CHANGELOG.md entry of this version (fails if missing).
+      - name: Release notes from CHANGELOG.md
+        id: notes
+        shell: bash
+        run: |
+          node tools/release-notes.mjs > release-notes.md
+          { echo "body<<NOTES_EOF"; cat release-notes.md; echo "NOTES_EOF"; } >> "$GITHUB_OUTPUT"
+
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -77,7 +85,7 @@ jobs:
           projectPath: app
           tagName: v__VERSION__
           releaseName: FileEpoch v__VERSION__
-          releaseBody: "See CHANGELOG.md for what changed. Installers: Windows (setup.exe), Linux (AppImage, .deb), macOS (.dmg, not signed by Apple yet)."
+          releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: true
           prerelease: false
           updaterJsonPreferNsis: true

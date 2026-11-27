@@ -64,9 +64,12 @@ cargo test --workspace
 
 ## Releases (maintainer)
 
-1. `node tools/set-version.mjs 0.2.0`, update CHANGELOG.md, commit.
+1. `node tools/set-version.mjs 0.2.0`, move the Unreleased entries of CHANGELOG.md under
+   `## [0.2.0] - date`, commit.
 2. `git tag v0.2.0 && git push origin v0.2.0`.
-3. The Release workflow builds all installers and creates a **draft** release. Check it, then
-   publish it: only then does the updater offer it.
+3. The Release workflow builds all installers and creates a **draft** release. Its notes are the
+   CHANGELOG.md entry of that version plus the download table (`tools/release-notes.mjs`; the
+   workflow fails if the entry is missing). Check the draft, then publish it: only then does the
+   updater offer it.
 
 By contributing you agree that your contribution is licensed under the Apache License 2.0.
