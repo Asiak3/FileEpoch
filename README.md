@@ -5,6 +5,8 @@ FileEpoch connects to a Kopia web server (ideally one with a read-only repositor
 [docs/SERVER.md](docs/SERVER.md)), lets you move through snapshots on a timeline, browse files as
 they were, and restore them **to your own computer**.
 
+![FileEpoch: a timeline of 1,000 snapshots above the files of the selected version](docs/screenshots/main.png)
+
 > **Status: beta (0.x).** Tested against Kopia 0.23.1 on Windows. Linux and macOS builds are
 > produced but have had little testing yet; reports are welcome.
 
@@ -113,6 +115,14 @@ Using it:
   round arrow next to the number of versions checks right away (its tooltip shows the last check).
 - All times are shown in your local time zone. Languages: English, Spanish, German.
 
+<p>
+  <img src="docs/screenshots/thumbnails.png" width="49%" alt="Large icons view with photo thumbnails, dark theme">
+  <img src="docs/screenshots/restores.png" width="49%" alt="The Restores panel with two restores in progress">
+</p>
+
+The screenshots show sample data from the mock backend (see below); `node tools/screenshots.mjs`
+retakes them while `npm run dev` is running.
+
 To work on the user interface without a Kopia server, `npm run dev` serves it at
 http://127.0.0.1:1420 with a mock backend (sample data, password `demo`). URL parameters such as
 `?lang=de&theme=dark&source=2` select the sample; see `app/src/lib/mock.ts`.
@@ -152,6 +162,7 @@ Times are shown in your local time zone. `download` writes `file (version of <sn
 | `tools/verify-api.ps1`   | Checks the documented API against a live server (read-only) |
 | `tools/anonymize-samples.py` | Turns recorded responses into anonymized test fixtures |
 | `tools/set-version.mjs`  | Sets or checks the version in all files |
+| `tools/screenshots.mjs`  | Retakes the README screenshots from the mock backend |
 | `.github/workflows/`     | CI (every push) and release builds (version tags) |
 
 ## Contributing

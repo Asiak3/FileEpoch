@@ -130,6 +130,16 @@ function listing(source: number, version: number, t: number, path: string[]): En
     }
     return out;
   }
+  if (key === "Fotos") {
+    // Mostly photos, for thumbnails in the icon and tile views.
+    const items: Entry[] = [dir("2025 Verano", 6_200_000_000, t - 120 * DAY, 30, 1400), dir("2026 Navidad", 900_000_000, t - 2 * DAY, 31, 210)];
+    for (let k = 0; k < 22; k++) {
+      items.push(file(`IMG_${4210 + k * 7}.jpg`, 2_400_000 + ((k * 7919) % 4_000_000), t - (30 + k * 5) * HOUR, 300 + k));
+    }
+    items.push(file("IMG_4390.HEIC", 3_100_000, t - 20 * HOUR, 330));
+    items.push(file("VID_4391.mp4", 182_000_000, t - 19 * HOUR, 331));
+    return items;
+  }
   if (path.length > 6) return [];
   // Generic folder: a few subfolders and files, stable per path.
   const s = seed(key);
@@ -186,9 +196,9 @@ export function mockApi(): Api {
   const emit = (job: RestoreJob) => listeners.forEach((l) => l({ ...job }));
 
   // ?jobs=1 starts with a finished and a running restore (for screenshots).
-  const simulate = (job: RestoreJob, totalFiles: number, totalBytes: number, failAt = -1) => {
-    const steps = 40;
-    let step = 0;
+  // `steps` ticks of 250 ms; `startAt` skips ahead (a long restore already under way).
+  const simulate = (job: RestoreJob, totalFiles: number, totalBytes: number, { failAt = -1, steps = 40, startAt = 0 } = {}) => {
+    let step = startAt;
     job.state = "running";
     const timer = setInterval(() => {
       if ((job.state as string) === "cancelled") {
@@ -205,7 +215,10 @@ export function mockApi(): Api {
         job.bytesTotal = totalBytes;
         job.filesDone = Math.min(totalFiles, Math.round(((step - 6) / (steps - 6)) * totalFiles));
         job.bytesDone = Math.min(totalBytes, Math.round(((step - 6) / (steps - 6)) * totalBytes));
-        job.current = `${job.items[0]}/IMG_${String(step * 13).padStart(4, "0")}.jpg`;
+        // A single selected file is itself the current file; a folder shows a file inside it.
+        job.current = /\.\w+$/.test(job.items[0])
+          ? job.items[Math.min(job.items.length - 1, Math.floor(job.filesDone))]
+          : `${job.items[0]}/IMG_${String(step * 13).padStart(4, "0")}.jpg`;
       }
       if (step === failAt) {
         clearInterval(timer);
@@ -262,7 +275,8 @@ export function mockApi(): Api {
     const a = newJob(["Informe_Final_2025.pdf", "Presupuesto_Q4.xlsx"], "C:\\Users\\ana\\Restaurado", t, sources[1].path);
     simulate(a, 2, 4_800_000);
     const b = newJob(["Fotos"], "D:\\Rescate", t, sources[1].path);
-    setTimeout(() => simulate(b, 9100, 38_000_000_000), 3000);
+    // About 110 MB/s, a third done when the page opens.
+    setTimeout(() => simulate(b, 9100, 38_000_000_000, { steps: 1400, startAt: 470 }), 3000);
   }
 
   return {
