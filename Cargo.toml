@@ -5,7 +5,7 @@ members = ["crates/kopia-client", "crates/fileepoch-cli", "app/src-tauri"]
 default-members = ["crates/kopia-client", "crates/fileepoch-cli"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 license = "Apache-2.0"
 repository = "https://github.com/Asiak3/FileEpoch"
